@@ -1,0 +1,1167 @@
+"use client";
+import React from "react";
+import { useState } from "react";
+import { Stage, Layer, Image as KonvaImage, Rect, Text, Group, Transformer } from "react-konva";
+import useImage from "use-image";
+import { defaultBackgroundUrl, defaultGridImages } from "../../../data/imagesForPhotoAlbum";
+
+// Layout definitions for grid
+const layouts = {
+  twoByThree: [
+    { x: 100, y: 150, width: 200, height: 200 },
+    { x: 350, y: 150, width: 200, height: 200 },
+    { x: 600, y: 150, width: 200, height: 200 },
+    { x: 100, y: 400, width: 200, height: 200 },
+    { x: 350, y: 400, width: 200, height: 200 },
+    { x: 600, y: 400, width: 200, height: 200 },
+  ],
+  threeByThree: [
+    { x: 50, y: 100, width: 180, height: 180 },
+    { x: 250, y: 100, width: 180, height: 180 },
+    { x: 450, y: 100, width: 180, height: 180 },
+    { x: 650, y: 100, width: 180, height: 180 },
+    { x: 50, y: 320, width: 180, height: 180 },
+    { x: 250, y: 320, width: 180, height: 180 },
+    { x: 450, y: 320, width: 180, height: 180 },
+    { x: 650, y: 320, width: 180, height: 180 },
+    { x: 50, y: 540, width: 180, height: 180 },
+  ],
+};
+
+function ImageEditor({ image, onClose, onDelete, onResize, onZoom, transformerRef, selectedImage }) {
+  const handleZoomIn = () => {
+    onZoom(selectedImage.scale * 1.1);
+  };
+
+  const handleZoomOut = () => {
+    onZoom(selectedImage.scale * 0.9);
+  };
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: "20px",
+        left: "20px",
+        zIndex: 10,
+        background: "white",
+        padding: "20px",
+        borderRadius: "8px",
+        boxShadow: "0 0 10px rgba(0,0,0,0.1)",
+      }}
+    >
+      <h2>Edit Image</h2>
+      <div>
+        <button onClick={handleZoomIn}>Zoom In</button>
+        <button onClick={handleZoomOut}>Zoom Out</button>
+        <button onClick={onResize}>Resize</button>
+        <button onClick={onClose}>Close</button>
+        <button onClick={onDelete}>Delete</button>
+      </div>
+    </div>
+  );
+}
+
+export default function AlbumPage() {
+  const [bgUrl, setBgUrl] = useState(defaultBackgroundUrl);
+  const [activeLayout, setActiveLayout] = useState("twoByThree");
+  const [selectedImageIndex, setSelectedImageIndex] = useState(null);
+  const [images, setImages] = useState(
+    defaultGridImages.map((img) => ({
+      ...img,
+      scale: 1, // Default scale for zoom
+      width: 200, // Default width
+      height: 200, // Default height
+      isSelected: false,
+    }))
+  );
+  const [bg] = useImage(bgUrl);
+  const transformerRef = React.useRef(null);
+
+  const handleImageClick = (index) => {
+    setSelectedImageIndex(index);
+  };
+
+  const handleCloseEditor = () => {
+    setSelectedImageIndex(null);
+  };
+
+  const handleDeleteImage = (index) => {
+    const updatedImages = images.filter((_, i) => i !== index);
+    setImages(updatedImages);
+    setSelectedImageIndex(null); // Close the editor after deleting
+  };
+
+  const handleResizeImage = () => {
+    const updatedImages = [...images];
+    const selectedImage = updatedImages[selectedImageIndex];
+    const node = transformerRef.current.node();
+    const scaleX = node.scaleX();
+    const scaleY = node.scaleY();
+    selectedImage.width = node.width() * scaleX;
+    selectedImage.height = node.height() * scaleY;
+    setImages(updatedImages);
+  };
+
+  const handleZoomImage = (scale) => {
+    const updatedImages = [...images];
+    updatedImages[selectedImageIndex].scale = scale;
+    setImages(updatedImages);
+  };
+
+  return (
+    <div className="flex">
+      {/* Sidebar */}
+      <div className="w-[250px] p-4 border-r space-y-4 bg-gray-100">
+        <h2 className="font-bold text-lg">Options</h2>
+
+        {/* Layout Switch */}
+        <div>
+          <h3 className="font-semibold">Layouts</h3>
+          <button
+            onClick={() => setActiveLayout("twoByThree")}
+            className="block mt-1 p-1 bg-white border rounded"
+          >
+            2 × 3 Grid
+          </button>
+          <button
+            onClick={() => setActiveLayout("threeByThree")}
+            className="block mt-1 p-1 bg-white border rounded"
+          >
+            3 × 3 Grid
+          </button>
+        </div>
+
+        {/* Background Switch */}
+        <div>
+          <h3 className="font-semibold">Background</h3>
+          <button
+            onClick={() =>
+              setBgUrl(
+                "https://images.unsplash.com/photo-1523413651479-597eb2da0ad6?w=1200&q=80"
+              )
+            }
+            className="block mt-1 p-1 bg-white border rounded"
+          >
+            Scenic
+          </button>
+          <button
+            onClick={() =>
+              setBgUrl(
+                "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200&q=80"
+              )
+            }
+            className="block mt-1 p-1 bg-white border rounded"
+          >
+            Beach
+          </button>
+        </div>
+      </div>
+
+      {/* Canvas */}
+      <div className="flex-1 flex justify-center items-center bg-gray-200">
+        <Stage width={1200} height={800}>
+          <Layer>
+            {/* Background */}
+            <KonvaImage image={bg} width={1200} height={800} />
+
+            {/* Grid Frames */}
+            {layouts[activeLayout].map((frame, i) => {
+              const img = images[i];
+
+              return (
+                <Group
+                  key={i}
+                  x={frame.x}
+                  y={frame.y}
+                  draggable
+                  scaleX={img.scale}
+                  scaleY={img.scale}
+                  onClick={() => handleImageClick(i)} // Image click triggers editor
+                >
+                  {/* Placeholder frame border */}
+                  <Rect
+                    width={frame.width}
+                    height={frame.height}
+                    stroke="gray"
+                    dash={[10, 5]}
+                    cornerRadius={8}
+                  />
+                  {/* Image inside frame */}
+                  <KonvaImage
+                    image={img.image}
+                    width={img.width}
+                    height={img.height}
+                    draggable
+                  />
+                </Group>
+              );
+            })}
+
+            {/* Example Title */}
+            <Text
+              text="My Album"
+              x={50}
+              y={30}
+              fontSize={32}
+              fill="white"
+              shadowColor="black"
+              shadowBlur={4}
+            />
+          </Layer>
+        </Stage>
+
+        {/* Image Editor Modal */}
+        {selectedImageIndex !== null && (
+          <ImageEditor
+            image={images[selectedImageIndex]}
+            onClose={handleCloseEditor}
+            onDelete={() => handleDeleteImage(selectedImageIndex)}
+            onResize={handleResizeImage}
+            onZoom={handleZoomImage}
+            transformerRef={transformerRef}
+            selectedImage={images[selectedImageIndex]}
+          />
+        )}
+
+        {/* Transformer for resizing the selected image */}
+        {selectedImageIndex !== null && (
+          <Transformer
+            ref={transformerRef}
+            node={images[selectedImageIndex].imageNode}
+            boundBoxFunc={(oldBox, newBox) => {
+              if (newBox.width < 50 || newBox.height < 50) {
+                return oldBox;
+              }
+              return newBox;
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
+
+---------------------------------------------------------------------------------------------
+
+"use client";
+import React from "react";
+import { useState, useRef } from "react";
+import { Stage, Layer, Image as KonvaImage, Rect, Text, Group, Transformer } from "react-konva";
+import useImage from "use-image";
+import { defaultBackgroundUrl, defaultGridImages } from "../../../data/imagesForPhotoAlbum";
+
+// Layout definitions for grid
+const layouts = {
+  twoByThree: [
+    { x: 100, y: 150, width: 200, height: 200 },
+    { x: 350, y: 150, width: 200, height: 200 },
+    { x: 600, y: 150, width: 200, height: 200 },
+    { x: 100, y: 400, width: 200, height: 200 },
+    { x: 350, y: 400, width: 200, height: 200 },
+    { x: 600, y: 400, width: 200, height: 200 },
+  ],
+  threeByThree: [
+    { x: 50, y: 100, width: 180, height: 180 },
+    { x: 250, y: 100, width: 180, height: 180 },
+    { x: 450, y: 100, width: 180, height: 180 },
+    { x: 650, y: 100, width: 180, height: 180 },
+    { x: 50, y: 320, width: 180, height: 180 },
+    { x: 250, y: 320, width: 180, height: 180 },
+    { x: 450, y: 320, width: 180, height: 180 },
+    { x: 650, y: 320, width: 180, height: 180 },
+    { x: 50, y: 540, width: 180, height: 180 },
+  ],
+};
+
+function ImageEditor({ image, onClose, onDelete, onResize, onZoom, transformerRef, selectedImage }) {
+  const handleZoomIn = () => {
+    onZoom(selectedImage.scale * 1.1);
+  };
+
+  const handleZoomOut = () => {
+    onZoom(selectedImage.scale * 0.9);
+  };
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: "20px",
+        left: "20px",
+        zIndex: 10,
+        background: "white",
+        padding: "20px",
+        borderRadius: "8px",
+        boxShadow: "0 0 10px rgba(0,0,0,0.1)",
+      }}
+    >
+      <h2>Edit Image</h2>
+      <div>
+        <button onClick={handleZoomIn}>Zoom In</button>
+        <button onClick={handleZoomOut}>Zoom Out</button>
+        <button onClick={onResize}>Apply Resize</button>
+        <button onClick={onClose}>Close</button>
+        <button onClick={onDelete}>Delete</button>
+      </div>
+    </div>
+  );
+}
+
+export default function AlbumPage() {
+  const [bgUrl, setBgUrl] = useState(defaultBackgroundUrl);
+  const [activeLayout, setActiveLayout] = useState("twoByThree");
+  const [selectedImageIndex, setSelectedImageIndex] = useState(null);
+  const [images, setImages] = useState(
+    // Create enough images for the largest layout (3x3 = 9 images)
+    Array(9).fill(null).map((_, i) => ({
+      ...(defaultGridImages[i] || { 
+        src: "https://via.placeholder.com/200x200?text=Add+Image",
+        image: null 
+      }),
+      scale: 1,
+      width: 200,
+      height: 200,
+      isSelected: false,
+      x: 0,
+      y: 0,
+    }))
+  );
+  const [bg] = useImage(bgUrl);
+  const transformerRef = useRef(null);
+  const imageRefs = useRef(images.map(() => React.createRef()));
+
+  const handleImageClick = (index, e) => {
+    e.cancelBubble = true; // Prevent event from bubbling to stage
+    setSelectedImageIndex(index);
+    
+    // Update transformer to selected node
+    if (transformerRef.current) {
+      transformerRef.current.nodes([imageRefs.current[index].current]);
+      transformerRef.current.getLayer().batchDraw();
+    }
+  };
+
+  const handleStageClick = () => {
+    // Deselect when clicking on stage
+    setSelectedImageIndex(null);
+    if (transformerRef.current) {
+      transformerRef.current.nodes([]);
+      transformerRef.current.getLayer().batchDraw();
+    }
+  };
+
+  const handleCloseEditor = () => {
+    setSelectedImageIndex(null);
+    if (transformerRef.current) {
+      transformerRef.current.nodes([]);
+      transformerRef.current.getLayer().batchDraw();
+    }
+  };
+
+  const handleDeleteImage = (index) => {
+    const updatedImages = [...images];
+    updatedImages[index] = {
+      ...updatedImages[index],
+      image: null, // Clear the image but keep the position
+      src: "https://via.placeholder.com/200x200?text=Add+Image"
+    };
+    setImages(updatedImages);
+    setSelectedImageIndex(null);
+  };
+
+  const handleResizeImage = () => {
+    if (selectedImageIndex === null || !transformerRef.current) return;
+    
+    const updatedImages = [...images];
+    const selectedImage = updatedImages[selectedImageIndex];
+    const node = transformerRef.current.nodes()[0];
+    
+    if (node) {
+      // Update the image dimensions based on transformer
+      selectedImage.width = node.width() * node.scaleX();
+      selectedImage.height = node.height() * node.scaleY();
+      selectedImage.scale = 1; // Reset scale after applying resize
+      
+      // Reset transformer scaling
+      node.scaleX(1);
+      node.scaleY(1);
+      
+      setImages(updatedImages);
+      transformerRef.current.getLayer().batchDraw();
+    }
+  };
+
+  const handleZoomImage = (scale) => {
+    if (selectedImageIndex === null) return;
+    
+    const updatedImages = [...images];
+    updatedImages[selectedImageIndex].scale = scale;
+    setImages(updatedImages);
+    
+    // Update the transformer to reflect the new scale
+    if (transformerRef.current && transformerRef.current.nodes().length > 0) {
+      const node = transformerRef.current.nodes()[0];
+      node.scaleX(scale);
+      node.scaleY(scale);
+      transformerRef.current.getLayer().batchDraw();
+    }
+  };
+
+  return (
+    <div className="flex">
+      {/* Sidebar */}
+      <div className="w-[250px] p-4 border-r space-y-4 bg-gray-100">
+        <h2 className="font-bold text-lg">Options</h2>
+
+        {/* Layout Switch */}
+        <div>
+          <h3 className="font-semibold">Layouts</h3>
+          <button
+            onClick={() => setActiveLayout("twoByThree")}
+            className="block mt-1 p-1 bg-white border rounded"
+          >
+            2 × 3 Grid
+          </button>
+          <button
+            onClick={() => setActiveLayout("threeByThree")}
+            className="block mt-1 p-1 bg-white border rounded"
+          >
+            3 × 3 Grid
+          </button>
+        </div>
+
+        {/* Background Switch */}
+        <div>
+          <h3 className="font-semibold">Background</h3>
+          <button
+            onClick={() =>
+              setBgUrl(
+                "https://images.unsplash.com/photo-1523413651479-597eb2da0ad6?w=1200&q=80"
+              )
+            }
+            className="block mt-1 p-1 bg-white border rounded"
+          >
+            Scenic
+          </button>
+          <button
+            onClick={() =>
+              setBgUrl(
+                "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200&q=80"
+              )
+            }
+            className="block mt-1 p-1 bg-white border rounded"
+          >
+            Beach
+          </button>
+        </div>
+      </div>
+
+      {/* Canvas */}
+      <div className="flex-1 flex justify-center items-center bg-gray-200">
+        <Stage width={1200} height={800} onClick={handleStageClick}>
+          <Layer>
+            {/* Background */}
+            <KonvaImage image={bg} width={1200} height={800} />
+
+            {/* Grid Frames */}
+            {layouts[activeLayout].map((frame, i) => {
+              const img = images[i];
+              const [image] = useImage(img?.src || "https://via.placeholder.com/200x200?text=Add+Image");
+              
+              return (
+                <Group
+                  key={i}
+                  x={frame.x}
+                  y={frame.y}
+                  draggable
+                  onClick={(e) => handleImageClick(i, e)}
+                  ref={imageRefs.current[i]}
+                  scaleX={img.scale}
+                  scaleY={img.scale}
+                >
+                  {/* Placeholder frame border */}
+                  <Rect
+                    width={frame.width}
+                    height={frame.height}
+                    stroke="gray"
+                    dash={[10, 5]}
+                    cornerRadius={8}
+                  />
+                  {/* Image inside frame */}
+                  <KonvaImage
+                    image={image}
+                    width={img.width}
+                    height={img.height}
+                  />
+                </Group>
+              );
+            })}
+
+            {/* Example Title */}
+            <Text
+              text="My Album"
+              x={50}
+              y={30}
+              fontSize={32}
+              fill="white"
+              shadowColor="black"
+              shadowBlur={4}
+            />
+            
+            {/* Transformer for resizing the selected image */}
+            <Transformer
+              ref={transformerRef}
+              boundBoxFunc={(oldBox, newBox) => {
+                // Limit the minimum size
+                if (newBox.width < 30 || newBox.height < 30) {
+                  return oldBox;
+                }
+                return newBox;
+              }}
+              keepRatio={true} // Maintain aspect ratio like Canva
+              resizeEnabled={true}
+              rotateEnabled={true}
+            />
+          </Layer>
+        </Stage>
+
+        {/* Image Editor Modal */}
+        {selectedImageIndex !== null && images[selectedImageIndex] && (
+          <ImageEditor
+            image={images[selectedImageIndex]}
+            onClose={handleCloseEditor}
+            onDelete={() => handleDeleteImage(selectedImageIndex)}
+            onResize={handleResizeImage}
+            onZoom={handleZoomImage}
+            transformerRef={transformerRef}
+            selectedImage={images[selectedImageIndex]}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+----------------------------------------------------------------
+
+
+
+"use client";
+
+import { defaultGridImages } from "@/data/imagesForPhotoAlbum";
+import React, { useState, useEffect, useRef } from "react";
+import { Stage, Layer, Image as KonvaImage, Rect, Text, Group, Transformer } from "react-konva";
+import useImage from "use-image";
+
+// Layout definitions for grid
+const layouts = {
+  twoByThree: [
+    { x: 100, y: 150, width: 200, height: 200 },
+    { x: 350, y: 150, width: 200, height: 200 },
+    { x: 600, y: 150, width: 200, height: 200 },
+    { x: 100, y: 400, width: 200, height: 200 },
+    { x: 350, y: 400, width: 200, height: 200 },
+    { x: 600, y: 400, width: 200, height: 200 },
+  ],
+  threeByThree: [
+    { x: 50, y: 100, width: 180, height: 180 },
+    { x: 250, y: 100, width: 180, height: 180 },
+    { x: 450, y: 100, width: 180, height: 180 },
+    { x: 650, y: 100, width: 180, height: 180 },
+    { x: 50, y: 320, width: 180, height: 180 },
+    { x: 250, y: 320, width: 180, height: 180 },
+    { x: 450, y: 320, width: 180, height: 180 },
+    { x: 650, y: 320, width: 180, height: 180 },
+    { x: 50, y: 540, width: 180, height: 180 },
+  ],
+};
+
+function ImageEditor({ image, onClose, onDelete, onResize, onZoom, transformerRef, selectedImage }) {
+  const handleZoomIn = () => {
+    onZoom(selectedImage.scale * 1.1);
+  };
+
+  const handleZoomOut = () => {
+    onZoom(selectedImage.scale * 0.9);
+  };
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: "20px",
+        left: "20px",
+        zIndex: 10,
+        background: "white",
+        padding: "20px",
+        borderRadius: "8px",
+        boxShadow: "0 0 10px rgba(0,0,0,0.1)",
+      }}
+    >
+      <h2>Edit Image</h2>
+      <div>
+        <button onClick={handleZoomIn}>Zoom In</button>
+        <button onClick={handleZoomOut}>Zoom Out</button>
+        <button onClick={onResize}>Apply Resize</button>
+        <button onClick={onClose}>Close</button>
+        <button onClick={onDelete}>Delete</button>
+      </div>
+    </div>
+  );
+}
+
+export default function AlbumPage() {
+  const [bgUrl, setBgUrl] = useState("https://via.placeholder.com/1200x800?text=Background");
+  const [activeLayout, setActiveLayout] = useState("twoByThree");
+  const [selectedImageIndex, setSelectedImageIndex] = useState(null);
+  const [images, setImages] = useState(
+    // Create enough images for the largest layout (3x3 = 9 images)
+    Array(9).fill(null).map((_, i) => ({
+      ...(defaultGridImages[i] || { 
+        src: "https://via.placeholder.com/200x200?text=Add+Image",
+        image: null 
+      }),
+      scale: 1,
+      width: 200,
+      height: 200,
+      isSelected: false,
+      x: 0,
+      y: 0,
+    }))
+  );
+
+  const [bg] = useImage(bgUrl);
+  const transformerRef = useRef(null);
+
+  const [loadedImages, setLoadedImages] = useState([]);
+  const imageRefs = useRef(images.map(() => React.createRef()));
+
+  // Preload images using useImage outside the render loop
+  useEffect(() => {
+    const loadImages = async () => {
+      const imagePromises = images.map((img) => useImage(img.src));
+      const loaded = await Promise.all(imagePromises);
+      setLoadedImages(loaded.map(([image]) => image));
+    };
+    loadImages();
+  }, [images]);
+
+  const handleImageClick = (index, e) => {
+    e.cancelBubble = true; // Prevent event from bubbling to stage
+    setSelectedImageIndex(index);
+    
+    // Update transformer to selected node
+    if (transformerRef.current) {
+      transformerRef.current.nodes([imageRefs.current[index].current]);
+      transformerRef.current.getLayer().batchDraw();
+    }
+  };
+
+  const handleStageClick = () => {
+    // Deselect when clicking on stage
+    setSelectedImageIndex(null);
+    if (transformerRef.current) {
+      transformerRef.current.nodes([]);
+      transformerRef.current.getLayer().batchDraw();
+    }
+  };
+
+  const handleCloseEditor = () => {
+    setSelectedImageIndex(null);
+    if (transformerRef.current) {
+      transformerRef.current.nodes([]);
+      transformerRef.current.getLayer().batchDraw();
+    }
+  };
+
+  const handleDeleteImage = (index) => {
+    const updatedImages = [...images];
+    updatedImages[index] = {
+      ...updatedImages[index],
+      image: null, // Clear the image but keep the position
+      src: "https://via.placeholder.com/200x200?text=Add+Image"
+    };
+    setImages(updatedImages);
+    setSelectedImageIndex(null);
+  };
+
+  const handleResizeImage = () => {
+    if (selectedImageIndex === null || !transformerRef.current) return;
+    
+    const updatedImages = [...images];
+    const selectedImage = updatedImages[selectedImageIndex];
+    const node = transformerRef.current.nodes()[0];
+    
+    if (node) {
+      // Update the image dimensions based on transformer
+      selectedImage.width = node.width();
+      selectedImage.height = node.height();
+      selectedImage.scale = 1; // Reset scale after applying resize
+      
+      // Reset transformer scaling
+      node.scaleX(1);
+      node.scaleY(1);
+      
+      setImages(updatedImages);
+      transformerRef.current.getLayer().batchDraw();
+    }
+  };
+
+  const handleZoomImage = (scale) => {
+    if (selectedImageIndex === null) return;
+    
+    const updatedImages = [...images];
+    updatedImages[selectedImageIndex].scale = scale;
+    setImages(updatedImages);
+    
+    // Update the transformer to reflect the new scale
+    if (transformerRef.current && transformerRef.current.nodes().length > 0) {
+      const node = transformerRef.current.nodes()[0];
+      node.scaleX(scale);
+      node.scaleY(scale);
+      transformerRef.current.getLayer().batchDraw();
+    }
+  };
+
+  return (
+    <div className="flex">
+      {/* Sidebar */}
+      <div className="w-[250px] p-4 border-r space-y-4 bg-gray-100">
+        <h2 className="font-bold text-lg">Options</h2>
+
+        {/* Layout Switch */}
+        <div>
+          <h3 className="font-semibold">Layouts</h3>
+          <button
+            onClick={() => setActiveLayout("twoByThree")}
+            className="block mt-1 p-1 bg-white border rounded"
+          >
+            2 × 3 Grid
+          </button>
+          <button
+            onClick={() => setActiveLayout("threeByThree")}
+            className="block mt-1 p-1 bg-white border rounded"
+          >
+            3 × 3 Grid
+          </button>
+        </div>
+
+        {/* Background Switch */}
+        <div>
+          <h3 className="font-semibold">Background</h3>
+          <button
+            onClick={() =>
+              setBgUrl("https://images.unsplash.com/photo-1523413651479-597eb2da0ad6?w=1200&q=80")
+            }
+            className="block mt-1 p-1 bg-white border rounded"
+          >
+            Scenic
+          </button>
+          <button
+            onClick={() =>
+              setBgUrl("https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200&q=80")
+            }
+            className="block mt-1 p-1 bg-white border rounded"
+          >
+            Beach
+          </button>
+        </div>
+      </div>
+
+      {/* Canvas */}
+      <div className="flex-1 flex justify-center items-center bg-gray-200">
+        <Stage width={1200} height={800} onClick={handleStageClick}>
+          <Layer>
+            {/* Background */}
+            <KonvaImage image={bg} width={1200} height={800} />
+
+            {/* Grid Frames */}
+            {layouts[activeLayout].map((frame, i) => {
+              const img = images[i];
+              const image = loadedImages[i];
+
+              return (
+                <Group
+                  key={i}
+                  x={frame.x}
+                  y={frame.y}
+                  draggable
+                  onClick={(e) => handleImageClick(i, e)}
+                  ref={imageRefs.current[i]}
+                  scaleX={img.scale}
+                  scaleY={img.scale}
+                >
+                  {/* Placeholder frame border */}
+                  <Rect
+                    width={frame.width}
+                    height={frame.height}
+                    stroke="gray"
+                    dash={[10, 5]}
+                    cornerRadius={8}
+                  />
+                  {/* Image inside frame */}
+                  <KonvaImage
+                    image={image}
+                    width={img.width}
+                    height={img.height}
+                  />
+                </Group>
+              );
+            })}
+
+            {/* Example Title */}
+            <Text
+              text="My Album"
+              x={50}
+              y={30}
+              fontSize={32}
+              fill="white"
+              shadowColor="black"
+              shadowBlur={4}
+            />
+            
+            {/* Transformer for resizing the selected image */}
+            <Transformer
+              ref={transformerRef}
+              boundBoxFunc={(oldBox, newBox) => {
+                // Limit the minimum size
+                if (newBox.width < 30 || newBox.height < 30) {
+                  return oldBox;
+                }
+                return newBox;
+              }}
+              keepRatio={true} // Maintain aspect ratio like Canva
+              resizeEnabled={true}
+              rotateEnabled={true}
+            />
+          </Layer>
+        </Stage>
+
+        {/* Image Editor Modal */}
+        {selectedImageIndex !== null && images[selectedImageIndex] && (
+          <ImageEditor
+            image={images[selectedImageIndex]}
+            onClose={handleCloseEditor}
+            onDelete={() => handleDeleteImage(selectedImageIndex)}
+            onResize={handleResizeImage}
+            onZoom={handleZoomImage}
+            transformerRef={transformerRef}
+            selectedImage={images[selectedImageIndex]}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+--------------------------------------------------------------------
+
+
+import React, { useState, useEffect, useRef } from "react";
+import { Stage, Layer, Image as KonvaImage, Rect, Text, Group, Transformer } from "react-konva";
+import useImage from "use-image";
+
+// Layout definitions for grid
+const layouts = {
+  twoByThree: [
+    { x: 100, y: 150, width: 200, height: 200 },
+    { x: 350, y: 150, width: 200, height: 200 },
+    { x: 600, y: 150, width: 200, height: 200 },
+    { x: 100, y: 400, width: 200, height: 200 },
+    { x: 350, y: 400, width: 200, height: 200 },
+    { x: 600, y: 400, width: 200, height: 200 },
+  ],
+  threeByThree: [
+    { x: 50, y: 100, width: 180, height: 180 },
+    { x: 250, y: 100, width: 180, height: 180 },
+    { x: 450, y: 100, width: 180, height: 180 },
+    { x: 650, y: 100, width: 180, height: 180 },
+    { x: 50, y: 320, width: 180, height: 180 },
+    { x: 250, y: 320, width: 180, height: 180 },
+    { x: 450, y: 320, width: 180, height: 180 },
+    { x: 650, y: 320, width: 180, height: 180 },
+    { x: 50, y: 540, width: 180, height: 180 },
+  ],
+};
+
+const realImages = [
+  "https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80",
+  "https://images.unsplash.com/photo-1473448912268-2022ce7d4e6b?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80",
+  "https://images.unsplash.com/photo-1475113548510-1f9a63ef5e3e?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80",
+  "https://images.unsplash.com/photo-1469474968028-56623f02e42e?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80",
+  "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?ixlib=rb-4.0.3&auto=format&fit=crop&w=2073&q=80",
+  "https://images.unsplash.com/photo-1468851508491-4f854ec88b97?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80",
+  "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?ixlib=rb-4.0.3&auto=format&fit=crop&w=2071&q=80",
+  "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80",
+  "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80"
+];
+
+const loadImage = async (src) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = src;
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(new Image()); // Return a blank image on error
+  });
+};
+
+function ImageEditor({ image, onClose, onDelete, onResize, onZoom, transformerRef, selectedImage }) {
+  const handleZoomIn = () => {
+    onZoom(selectedImage.scale * 1.1);
+  };
+
+  const handleZoomOut = () => {
+    onZoom(selectedImage.scale * 0.9);
+  };
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: "20px",
+        left: "20px",
+        zIndex: 10,
+        background: "white",
+        padding: "20px",
+        borderRadius: "8px",
+        boxShadow: "0 0 10px rgba(0,0,0,0.1)",
+      }}
+    >
+      <h2>Edit Image</h2>
+      <div>
+        <button onClick={handleZoomIn}>Zoom In</button>
+        <button onClick={handleZoomOut}>Zoom Out</button>
+        <button onClick={onResize}>Apply Resize</button>
+        <button onClick={onClose}>Close</button>
+        <button onClick={onDelete}>Delete</button>
+      </div>
+    </div>
+  );
+}
+
+export default function AlbumPage() {
+  const [bgUrl, setBgUrl] = useState("https://via.placeholder.com/1200x800?text=Background");
+  const [activeLayout, setActiveLayout] = useState("twoByThree");
+  const [selectedImageIndex, setSelectedImageIndex] = useState(null);
+  const [images, setImages] = useState(
+    realImages.map((src, i) => ({
+      src,
+      scale: 1,
+      isSelected: false,
+      x: layouts.twoByThree[i]?.x || 0,
+      y: layouts.twoByThree[i]?.y || 0,
+    }))
+  );
+
+  const [bg] = useImage(bgUrl);
+  const transformerRef = useRef(null);
+
+  const [loadedImages, setLoadedImages] = useState([]);
+  const imageRefs = useRef(images.map(() => React.createRef()));
+
+  useEffect(() => {
+    const loadImages = async () => {
+      const imagePromises = images.map((img) => loadImage(img.src));
+      const loaded = await Promise.all(imagePromises);
+      setLoadedImages(loaded);
+    };
+    loadImages();
+  }, [images]);
+
+  const handleImageClick = (index, e) => {
+    e.cancelBubble = true; // Prevent event from bubbling to stage
+    setSelectedImageIndex(index);
+    
+    if (transformerRef.current) {
+      transformerRef.current.nodes([imageRefs.current[index].current]);
+      transformerRef.current.getLayer().batchDraw();
+    }
+  };
+
+  const handleStageClick = () => {
+    setSelectedImageIndex(null);
+    if (transformerRef.current) {
+      transformerRef.current.nodes([]);
+      transformerRef.current.getLayer().batchDraw();
+    }
+  };
+
+  const handleCloseEditor = () => {
+    setSelectedImageIndex(null);
+    if (transformerRef.current) {
+      transformerRef.current.nodes([]);
+      transformerRef.current.getLayer().batchDraw();
+    }
+  };
+
+  const handleDeleteImage = (index) => {
+    const updatedImages = [...images];
+    updatedImages[index] = {
+      ...updatedImages[index],
+      image: null, // Clear the image but keep the position
+      src: "https://via.placeholder.com/200x200?text=Add+Image",
+    };
+    setImages(updatedImages);
+    setSelectedImageIndex(null);
+  };
+
+  const handleResizeImage = () => {
+    if (selectedImageIndex === null || !transformerRef.current) return;
+
+    const updatedImages = [...images];
+    const selectedImage = updatedImages[selectedImageIndex];
+    const node = transformerRef.current.nodes()[0];
+
+    if (node) {
+      // Update the image dimensions based on transformer
+      selectedImage.width = node.width();
+      selectedImage.height = node.height();
+      selectedImage.scale = 1; // Reset scale after applying resize
+
+      node.scaleX(1);
+      node.scaleY(1);
+
+      setImages(updatedImages);
+      transformerRef.current.getLayer().batchDraw();
+    }
+  };
+
+  const handleZoomImage = (scale) => {
+    if (selectedImageIndex === null) return;
+
+    const updatedImages = [...images];
+    updatedImages[selectedImageIndex].scale = scale;
+    setImages(updatedImages);
+
+    if (transformerRef.current && transformerRef.current.nodes().length > 0) {
+      const node = transformerRef.current.nodes()[0];
+      node.scaleX(scale);
+      node.scaleY(scale);
+      transformerRef.current.getLayer().batchDraw();
+    }
+  };
+
+  return (
+    <div className="flex">
+      {/* Sidebar */}
+      <div className="w-[250px] p-4 border-r space-y-4 bg-gray-100">
+        <h2 className="font-bold text-lg">Options</h2>
+
+        {/* Layout Switch */}
+        <div>
+          <h3 className="font-semibold">Layouts</h3>
+          <button
+            onClick={() => setActiveLayout("twoByThree")}
+            className="block mt-1 p-1 bg-white border rounded"
+          >
+            2 × 3 Grid
+          </button>
+          <button
+            onClick={() => setActiveLayout("threeByThree")}
+            className="block mt-1 p-1 bg-white border rounded"
+          >
+            3 × 3 Grid
+          </button>
+        </div>
+
+        {/* Background Switch */}
+        <div>
+          <h3 className="font-semibold">Background</h3>
+          <button
+            onClick={() =>
+              setBgUrl("https://images.unsplash.com/photo-1523413651479-597eb2da0ad6?w=1200&q=80")
+            }
+            className="block mt-1 p-1 bg-white border rounded"
+          >
+            Scenic
+          </button>
+          <button
+            onClick={() =>
+              setBgUrl("https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200&q=80")
+            }
+            className="block mt-1 p-1 bg-white border rounded"
+          >
+            Beach
+          </button>
+        </div>
+      </div>
+
+      {/* Canvas */}
+      <div className="flex-1 flex justify-center items-center bg-gray-200">
+        <Stage width={1200} height={800} onClick={handleStageClick}>
+          <Layer>
+            {/* Background */}
+            <KonvaImage image={bg} width={1200} height={800} />
+
+            {/* Grid Frames */}
+            {layouts[activeLayout].map((frame, i) => {
+              const img = images[i];
+              const image = loadedImages[i] || loadedImages[loadedImages.length - 1]; // Fallback to placeholder
+
+              return (
+                <Group
+                  key={i}
+                  x={frame.x}
+                  y={frame.y}
+                  draggable
+                  onClick={(e) => handleImageClick(i, e)}
+                  ref={imageRefs.current[i]}
+                  scaleX={img.scale}
+                  scaleY={img.scale}
+                >
+                  <KonvaImage image={image} width={frame.width} height={frame.height} cornerRadius={8} />
+                </Group>
+              );
+            })}
+
+            {/* Example Title */}
+            <Text
+              text="My Album"
+              x={50}
+              y={30}
+              fontSize={32}
+              fill="white"
+              shadowColor="black"
+              shadowBlur={4}
+            />
+            
+            {/* Transformer for resizing the selected image */}
+            <Transformer
+              ref={transformerRef}
+              boundBoxFunc={(oldBox, newBox) => {
+                // Limit the minimum size
+                if (newBox.width < 30 || newBox.height < 30) {
+                  return oldBox;
+                }
+                return newBox;
+              }}
+              keepRatio={true} // Maintain aspect ratio like Canva
+              resizeEnabled={true}
+              rotateEnabled={true}
+            />
+          </Layer>
+        </Stage>
+
+        {/* Image Editor Modal */}
+        {selectedImageIndex !== null && images[selectedImageIndex] && (
+          <ImageEditor
+            image={images[selectedImageIndex]}
+            onClose={handleCloseEditor}
+            onDelete={() => handleDeleteImage(selectedImageIndex)}
+            onResize={handleResizeImage}
+            onZoom={handleZoomImage}
+            transformerRef={transformerRef}
+            selectedImage={images[selectedImageIndex]}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
