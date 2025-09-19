@@ -88,3 +88,25 @@ export const stickerImages = [
   "https://twemoji.maxcdn.com/v/latest/72x72/1f609.png",
   "https://twemoji.maxcdn.com/v/latest/72x72/1f60b.png",
 ];
+
+
+export const backgroundCategories = {
+  'Plain Backgrounds': ['#D81B60', '#4FC3F7', '#FFCA28', '#6D4C41'],
+  'Kids': ['https://images.unsplash.com/photo-1598584263125-2d1567e7e2e7', 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c', 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd', 'https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d'],
+  'Travel': ['https://images.unsplash.com/photo-1501785888041-af3ef285b470', 'https://images.unsplash.com/photo-1472214103451-9374bd1c798e', 'https://images.unsplash.com/photo-1507608616759-54f48f0af0ee', 'https://images.unsplash.com/photo-1475483768296-6163e08872a1'],
+  'School': ['https://images.unsplash.com/photo-1497633762265-9d179a990aa6', 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4', 'https://images.unsplash.com/photo-1526374965328-7f61d4dc347d', 'https://images.unsplash.com/photo-1546412415-2e0b766bc7d0'],
+  'Universal': ['https://images.unsplash.com/photo-1501854140801-50d01698950b', 'https://images.unsplash.com/photo-1497366219816-d3f8e3a4ea88', 'https://images.unsplash.com/photo-1472214103451-9374bd1c798e', 'https://images.unsplash.com/photo-1501785888041-af3ef285b470'],
+  'Decorative': ['https://images.unsplash.com/photo-1600585154340-be6161a56a0c', 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd', 'https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d', 'https://images.unsplash.com/photo-1598584263125-2d1567e7e2e7'],
+  'For special occasions': ['https://images.unsplash.com/photo-1516455590571-18256dc59b31', 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3', 'https://images.unsplash.com/photo-1517331156700-92fc3041a5b1', 'https://images.unsplash.com/photo-1506744038136-46273834b3fb'],
+  'Modern': ['https://images.unsplash.com/photo-1497366219816-d3f8e3a4ea88', 'https://images.unsplash.com/photo-1501854140801-50d01698950b', 'https://images.unsplash.com/photo-1472214103451-9374bd1c798e', 'https://images.unsplash.com/photo-1501785888041-af3ef285b470'],
+  'Floral': ['https://images.unsplash.com/photo-1506744038136-46273834b3fb', 'https://images.unsplash.com/photo-1517331156700-92fc3041a5b1', 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3', 'https://images.unsplash.com/photo-1516455590571-18256dc59b31']
+}
+
+export const stickerCategories = {
+  "Happy & Positive": ["😀", "😁", "😊", "😍", "🤗"],
+  "Sad & Emotional": ["😞", "😢", "😭", "😔", "😩"],
+  "Cool & Confident": ["😎", "😏", "😬", "🤠"],
+  "Funny & Silly": ["😛", "😝", "🤪", "🤡", "🙃"],
+  "Shocked & Surprised": ["😲", "😳", "😱", "😯"],
+  "Love & Romance": ["💋", "💘", "💖", "💞", "💑"]
+}
