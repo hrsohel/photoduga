@@ -79,7 +79,7 @@ export default function Frames({ uploadedImages, handleImageUpload }) {
           <p className='mt-2 text-[12px] font-[600] font-sans text-green-600'>{ackMessage}</p>
         )}
       </div>
-      <div className="mt-[40px] space-y-2 h-96 overflow-y-auto flex items-stretch justify-center gap-2 flex-wrap border-b-[2px] border-[#777]">
+      <div className="mt-[40px] w-full space-y-2 h-96 overflow-y-auto flex items-stretch justify-center gap-2 flex-wrap border-b-[2px] border-[#777]">
         {uploadedImages.map((src, index) => (
           <div
             key={index}

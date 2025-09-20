@@ -32,7 +32,7 @@ export default function StickerComponent({ onSelectSticker, onClose }) {
               {selectedCategory === category && <span>▼</span>}
             </button>
             {selectedCategory === category && (
-              <div className='mt-0 grid grid-cols-2 gap-3 ml-2'>
+              <div className='mt-0 flex items-center justify-center gap-2 flex-wrap'>
                 {stickerCategories[category].map((sticker, index) => (
                   <div
                     key={index}
@@ -40,7 +40,7 @@ export default function StickerComponent({ onSelectSticker, onClose }) {
                     className='cursor-pointer hover:scale-105 transition-transform duration-200'
                   >
                     <span 
-                      className='w-16 h-16 flex items-center justify-center text-4xl border border-gray-200 rounded-lg shadow-sm hover:shadow-md bg-white'
+                      className='w-20 h-20 flex items-center justify-center text-6xl border border-gray-200 rounded-lg shadow-sm hover:shadow-md bg-white'
                     >
                       {sticker}
                     </span>

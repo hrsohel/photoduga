@@ -24,7 +24,7 @@ export default function Background({ bgType, selectedBg, setBgType, setSelectedB
                                 {selectedCategory === category && <span className="float-right">▼</span>}
                             </button>
                             {selectedCategory === category && (
-                                <div className="mt-2 ml-2 grid grid-cols-2 gap-2">
+                                <div className="mt-2 flex items-center justify-center flex-wrap gap-2 w-full">
                                     {backgroundCategories[category].map((option, index) => (
                                         <div
                                             key={index}
@@ -35,7 +35,7 @@ export default function Background({ bgType, selectedBg, setBgType, setSelectedB
                                                 backgroundSize: 'cover',
                                                 backgroundPosition: 'center',
                                             }}
-                                            className="w-12 h-12 border border-gray-300 rounded cursor-pointer hover:border-[#A8C3A0] transition-all duration-200"
+                                            className="w-20 h-20 border border-gray-300 rounded cursor-pointer hover:border-[#A8C3A0] transition-all duration-200"
                                         />
                                     ))}
                                 </div>
