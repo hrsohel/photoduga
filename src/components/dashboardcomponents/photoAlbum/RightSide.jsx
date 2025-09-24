@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Stage, Layer, Image as KonvaImage, Text, Group, Transformer, Rect } from "react-konva";
 import useImage from "use-image";
 import PageNavigation from "./PageNavigation";
+import Konva from "konva";
 
 const loadImage = async (src) => {
   if (!src) return new Image();
@@ -14,12 +15,8 @@ const loadImage = async (src) => {
   });
 };
 
-// Image Editor Component with Resize and Zoom
-function ImageEditor({ onClose, onDelete, onResize, onZoom, selectedImage }) {
-  const handleResize = (widthDelta, heightDelta) => {
-    onResize(widthDelta, heightDelta);
-  };
-
+// Image Editor Component with Zoom only
+function ImageEditor({ onClose, onDelete, onZoom, selectedImage }) {
   const handleZoom = (factor) => {
     onZoom(factor);
   };
@@ -32,29 +29,12 @@ function ImageEditor({ onClose, onDelete, onResize, onZoom, selectedImage }) {
         left: "20px",
         zIndex: 10,
         background: "white",
-        padding: "20px",
+        padding: "10px",
         borderRadius: "8px",
         boxShadow: "0 0 10px rgba(0,0,0,0.1)",
       }}
     >
-      <h2>Edit Image</h2>
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={() => handleResize(10, 0)} style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px' }}>
-            Wider
-          </button>
-          <button onClick={() => handleResize(-10, 0)} style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px' }}>
-            Narrower
-          </button>
-        </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={() => handleResize(0, 10)} style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px' }}>
-            Taller
-          </button>
-          <button onClick={() => handleResize(0, -10)} style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px' }}>
-            Shorter
-          </button>
-        </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button onClick={() => handleZoom(1.1)} style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px' }}>
             Zoom In
@@ -96,20 +76,23 @@ export default function RightSide({
     imageIndex: null,
     elementIndex: null,
   });
-  const [gridCount, setGridCount] = useState({ left: 2, right: 2 });
+  const [gridCount, setGridCount] = useState({ left: 5, right: 5 });
   const [gridPositions, setGridPositions] = useState([]);
   const [placedImages, setPlacedImages] = useState([]);
   const [loadedImages, setLoadedImages] = useState([]);
-  const [selectedPartition, setSelectedPartition] = useState('left'); // 'left' or 'right'
+  const [selectedPartition, setSelectedPartition] = useState('left');
   const stageRef = useRef();
   const gridRefs = useRef([]);
   const imageTransformerRef = useRef();
   const textTransformerRef = useRef();
   const stickerTransformerRef = useRef();
+  const [showPageLayout, setShowPageLayout] = useState(false);
+  const [layoutModeLeft, setLayoutModeLeft] = useState(0); // 0-3 for left
+  const [layoutModeRight, setLayoutModeRight] = useState(0); // 0-3 for right
+  const previousGridPositionsRef = useRef([]);
 
   const [bgImage] = useImage(bgType === 'image' && selectedBg.startsWith('http') ? selectedBg : null);
 
-  // Load images and stickers
   useEffect(() => {
     const loadAssets = async () => {
       const imagePromises = placedImages.map((img) => loadImage(img.src));
@@ -119,16 +102,12 @@ export default function RightSide({
     loadAssets();
   }, [placedImages]);
 
-  // Add effect to handle layout selection
   useEffect(() => {
     if (selectedPhotoLayout) {
-      // Update grid count for the selected partition
       setGridCount(prev => ({
         ...prev,
         [selectedPartition]: selectedPhotoLayout.count
       }));
-      
-      // Notify parent that layout has been applied
       if (onLayoutApplied) {
         onLayoutApplied();
       }
@@ -138,23 +117,45 @@ export default function RightSide({
   useEffect(() => {
     const initialLayout = getCurrentGridLayout();
     setGridPositions(initialLayout);
-    gridRefs.current = initialLayout.map(() => React.createRef());
+  }, [gridCount, selectedPhotoLayout, selectedPartition, layoutModeLeft, layoutModeRight]);
+
+  useEffect(() => {
+    if (previousGridPositionsRef.current.length > 0) {
+      gridRefs.current.forEach((ref, i) => {
+        const node = ref.current;
+        if (node) {
+          const oldPos = previousGridPositionsRef.current.find(p => p.id === gridPositions[i].id);
+          if (oldPos) {
+            new Konva.Tween({
+              node,
+              duration: 0.5,
+              x: gridPositions[i].x,
+              y: gridPositions[i].y,
+              width: gridPositions[i].width,
+              height: gridPositions[i].height,
+              easing: Konva.Easings.EaseInOut,
+            }).play();
+          }
+        }
+      });
+    }
+    previousGridPositionsRef.current = gridPositions;
+    gridRefs.current = gridPositions.map(() => React.createRef());
     setPlacedImages(prev => {
       return prev
         .filter(img => {
-          // Keep images that are in the current grid layout
-          const cellExists = initialLayout.some(pos => pos.id === img.gridId && pos.shape === "rect");
+          const cellExists = gridPositions.some(pos => pos.id === img.gridId && pos.shape === "rect");
           return cellExists;
         })
         .map(img => {
-          const newCell = initialLayout.find(pos => pos.id === img.gridId && pos.shape === "rect");
+          const newCell = gridPositions.find(pos => pos.id === img.gridId && pos.shape === "rect");
           if (newCell) {
             return { ...img, width: newCell.width, height: newCell.height };
           }
           return img;
         });
     });
-  }, [gridCount, selectedPhotoLayout, selectedPartition]);
+  }, [gridPositions]);
 
   useEffect(() => {
     if (selectedElement.type === 'image' && selectedElement.imageIndex !== null) {
@@ -217,7 +218,20 @@ export default function RightSide({
     e.cancelBubble = true;
     setSelectedElement({ type: 'image', imageIndex: index, elementIndex: null });
     setSelectedImageIndex(index);
-    setContextMenu({ visible: true, x: e.evt.clientX, y: e.evt.clientY, type: 'image', imageIndex: index });
+    setContextMenu({ visible: false, x: 0, y: 0, type: null, imageIndex: null });
+  };
+
+  const handleImageDblClick = (index, e) => {
+    e.cancelBubble = true;
+    setSelectedElement({ type: 'image', imageIndex: index, elementIndex: null });
+    setSelectedImageIndex(index);
+    setContextMenu({
+      visible: true,
+      x: e.evt.clientX,
+      y: e.evt.clientY,
+      type: 'image',
+      imageIndex: index
+    });
   };
 
   const handleElementClick = (type, imageIndex, elementIndex, e) => {
@@ -231,75 +245,137 @@ export default function RightSide({
     setSelectedPartition(partition);
     setSelectedImageIndex(null);
     setSelectedElement({ type: null, imageIndex: null, elementIndex: null });
+    setShowPageLayout(false);
   };
 
   const getCurrentGridLayout = () => {
-    const stageWidth = 1200;
-    const stageHeight = 800;
+    const stageWidth = 1280;
+    const stageHeight = 780;
     const padding = 20;
     const middleGap = 40;
-    
-    // If we have a specific layout from PhotoLayouts, use it for the selected partition
-    if (selectedPhotoLayout && selectedPhotoLayout.preview) {
-      return generateCustomGridLayout(selectedPhotoLayout, stageWidth, stageHeight, padding, selectedPartition);
-    }
-    
-    // Default layout logic for both partitions
     const sideWidth = (stageWidth - middleGap) / 2;
     const rightX = sideWidth + middleGap;
     let layout = [];
 
-    // Generate layout for left partition
-    const addSide = (count, startX, baseId, partition) => {
+    const addSide = (count, startX, baseId, partition, mode) => {
       if (count === 0) return;
-      
-      // For rectangular grids, use a 2-column layout
-      const cols = 2;
-      const rows = Math.ceil(count / cols);
-      
-      const calculatedWidth = (sideWidth - padding * (cols + 1)) / cols;
-      const calculatedHeight = (stageHeight - padding * (rows + 1)) / rows;
-      
-      // Make cells rectangular (wider than tall)
-      const cellWidth = calculatedWidth;
-      const cellHeight = calculatedHeight;
-      
-      const totalHeight = rows * cellHeight + (rows - 1) * padding;
-      const startY = (stageHeight - totalHeight) / 2;
-      let k = 0;
-      
-      for (let i = 0; i < rows; i++) {
-        let cellsInRow = cols;
-        if (i === rows - 1 && count % cols !== 0 && count % cols > 0) {
-          cellsInRow = count % cols;
-        }
-        const totalRowWidth = cellsInRow * cellWidth + (cellsInRow - 1) * padding;
-        const startXRow = startX + (sideWidth - totalRowWidth) / 2;
-        
-        for (let j = 0; j < cellsInRow; j++) {
-          const x = startXRow + j * (cellWidth + padding);
-          const y = startY + i * (cellHeight + padding);
+
+      const availableWidth = sideWidth - padding * 2;
+      const availableHeight = stageHeight - padding * 2;
+
+      if (mode === 0) {
+        // Mode 0: First half horizontal on top, second half full width below
+        const halfCount = Math.ceil(count / 2);
+        const topHeight = (availableHeight - padding) / 2;
+        const bottomCount = count - halfCount;
+        const bottomHeight = (availableHeight - topHeight - padding - padding * (bottomCount - 1)) / bottomCount;
+
+        // Top row (first half grids)
+        let currentX = startX + padding;
+        const topWidth = availableWidth / halfCount;
+        for (let i = 0; i < halfCount; i++) {
           layout.push({
-            x,
-            y,
-            width: cellWidth,
-            height: cellHeight,
-            id: baseId + k,
+            x: currentX,
+            y: padding,
+            width: topWidth,
+            height: topHeight,
+            id: baseId + i,
             shape: "rect",
-            partition: partition
+            partition: partition,
+            gridArea: `grid${i + 1}`
           });
-          k++;
+          currentX += topWidth + padding;
+        }
+
+        // Bottom row(s)
+        let currentY = padding + topHeight + padding;
+        for (let i = halfCount; i < count; i++) {
+          layout.push({
+            x: startX + padding,
+            y: currentY,
+            width: availableWidth,
+            height: bottomHeight,
+            id: baseId + i,
+            shape: "rect",
+            partition: partition,
+            gridArea: `grid${i + 1}`
+          });
+          currentY += bottomHeight + padding;
+        }
+      } else if (mode === 1) {
+        // Mode 1: Full height left, remaining vertical on right with total height = left height
+        const leftWidth = availableWidth / 3;
+        const rightWidth = availableWidth - leftWidth - padding;
+        const rightCount = count - 1;
+        const rightHeight = availableHeight / rightCount; // Ensure total height matches left
+
+        // Left grid (full height)
+        layout.push({
+          x: startX + padding,
+          y: padding,
+          width: leftWidth,
+          height: availableHeight,
+          id: baseId,
+          shape: "rect",
+          partition: partition,
+          gridArea: 'grid1'
+        });
+
+        // Right grids (vertical stack, total height = availableHeight)
+        let currentY = padding;
+        for (let i = 1; i < count; i++) {
+          layout.push({
+            x: startX + padding + leftWidth + padding,
+            y: currentY,
+            width: rightWidth,
+            height: rightHeight,
+            id: baseId + i,
+            shape: "rect",
+            partition: partition,
+            gridArea: `grid${i + 1}`
+          });
+          currentY += rightHeight + padding;
+        }
+      } else if (mode === 2) {
+        // Mode 2: Single column, full width grids, height divided equally
+        const gridHeight = availableHeight / count;
+        let currentY = padding;
+        for (let i = 0; i < count; i++) {
+          layout.push({
+            x: startX + padding,
+            y: currentY,
+            width: availableWidth,
+            height: gridHeight - (padding / count),
+            id: baseId + i,
+            shape: "rect",
+            partition: partition,
+            gridArea: `grid${i + 1}`
+          });
+          currentY += gridHeight;
+        }
+      } else if (mode === 3) {
+        // Mode 3: Single row, full height grids, width divided equally
+        const gridWidth = availableWidth / count;
+        let currentX = startX + padding;
+        for (let i = 0; i < count; i++) {
+          layout.push({
+            x: currentX,
+            y: padding,
+            width: gridWidth - (padding / count),
+            height: availableHeight,
+            id: baseId + i,
+            shape: "rect",
+            partition: partition,
+            gridArea: `grid${i + 1}`
+          });
+          currentX += gridWidth;
         }
       }
     };
 
-    // Add left partition
-    addSide(gridCount.left, 0, 0, 'left');
-    
-    // Add right partition
-    addSide(gridCount.right, rightX, gridCount.left, 'right');
+    addSide(gridCount.left, 0, 0, 'left', layoutModeLeft);
+    addSide(gridCount.right, rightX, gridCount.left, 'right', layoutModeRight);
 
-    // Add double partitions
     layout.push({
       x: sideWidth + 10,
       y: padding,
@@ -319,96 +395,6 @@ export default function RightSide({
       partition: 'middle'
     });
 
-    return layout;
-  };
-
-  // Helper function to generate custom grid layout based on PhotoLayouts selection
-  const generateCustomGridLayout = (layoutOption, stageWidth, stageHeight, padding, partition) => {
-    const { preview, rowHeights = [], colWidths = [] } = layoutOption;
-    const layout = [];
-    let cellId = partition === 'left' ? 0 : gridCount.left;
-    
-    const numRows = preview.length;
-    const numCols = Math.max(...preview.map(row => row.length));
-    
-    // Calculate partition dimensions
-    const partitionWidth = (stageWidth - 40) / 2;
-    const availableWidth = partitionWidth - padding * 2;
-    const availableHeight = stageHeight - padding * 2;
-    
-    // Use provided row heights or default to equal distribution
-    const rowHeightValues = rowHeights.length === numRows 
-      ? rowHeights.map(h => parseFloat(h) / 100 * availableHeight)
-      : Array(numRows).fill(availableHeight / numRows);
-    
-    // Use provided column widths or default to equal distribution
-    const colWidthValues = colWidths.length === numCols
-      ? colWidths.map(w => parseFloat(w) / 100 * availableWidth)
-      : Array(numCols).fill(availableWidth / numCols);
-    
-    // Calculate starting position based on partition
-    const totalGridWidth = colWidthValues.reduce((sum, width) => sum + width, 0) + padding * (numCols - 1);
-    const totalGridHeight = rowHeightValues.reduce((sum, height) => sum + height, 0) + padding * (numRows - 1);
-    
-    const startX = partition === 'left' 
-      ? (partitionWidth - totalGridWidth) / 2 
-      : partitionWidth + 20 + (partitionWidth - totalGridWidth) / 2;
-    const startY = (stageHeight - totalGridHeight) / 2;
-    
-    // Create grid cells based on the preview pattern
-    let currentY = startY;
-    for (let rowIdx = 0; rowIdx < numRows; rowIdx++) {
-      let currentX = startX;
-      const row = preview[rowIdx];
-      const rowHeight = rowHeightValues[rowIdx];
-      
-      for (let colIdx = 0; colIdx < row.length; colIdx++) {
-        const cellValue = row[colIdx];
-        if (cellValue > 0) { // Only create cells for positive values
-          const colSpan = 1;
-          const rowSpan = 1;
-          
-          const cellWidth = colWidthValues[colIdx] * colSpan + padding * (colSpan - 1);
-          const cellHeight = rowHeight * rowSpan + padding * (rowSpan - 1);
-          
-          layout.push({
-            x: currentX,
-            y: currentY,
-            width: cellWidth,
-            height: cellHeight,
-            id: cellId++,
-            shape: "rect",
-            partition: partition
-          });
-        }
-        
-        currentX += colWidthValues[colIdx] + padding;
-      }
-      
-      currentY += rowHeight + padding;
-    }
-    
-    // Add double partitions
-    const sideWidth = (stageWidth - 40) / 2;
-    layout.push({
-      x: sideWidth + 10,
-      y: padding,
-      width: 2,
-      height: stageHeight - 2 * padding,
-      id: cellId++,
-      shape: "line",
-      partition: 'middle'
-    });
-    layout.push({
-      x: sideWidth + 40 - 12,
-      y: padding,
-      width: 2,
-      height: stageHeight - 2 * padding,
-      id: cellId++,
-      shape: "line",
-      partition: 'middle'
-    });
-    
     return layout;
   };
 
@@ -449,7 +435,8 @@ export default function RightSide({
       if (imageUrl) {
         const newImage = {
           src: imageUrl,
-          scale: 1,
+          scaleX: 1,
+          scaleY: 1,
           rotation: 0,
           isSelected: false,
           x: 0,
@@ -529,7 +516,10 @@ export default function RightSide({
     const updatedImages = [...placedImages];
     const imageIndex = updatedImages.findIndex(img => img.gridId === index);
     if (imageIndex !== -1) {
-      updatedImages[imageIndex].scale = scaleX;
+      updatedImages[imageIndex].width *= scaleX;
+      updatedImages[imageIndex].height *= scaleY;
+      updatedImages[imageIndex].scaleX = scaleX;
+      updatedImages[imageIndex].scaleY = scaleY;
       updatedImages[imageIndex].rotation = rotation;
       setPlacedImages(updatedImages);
     }
@@ -572,33 +562,16 @@ export default function RightSide({
     node.scaleY(1);
   };
 
-  const handleResize = (widthDelta, heightDelta) => {
-    if (selectedImageIndex === null) return;
-
-    const updatedImages = [...placedImages];
-    const imageIndex = updatedImages.findIndex(img => img.gridId === selectedImageIndex);
-    if (imageIndex !== -1) {
-      // Only update the dimension that changed
-      if (widthDelta !== 0) {
-        updatedImages[imageIndex].width += widthDelta;
-        updatedImages[imageIndex].width = Math.max(50, updatedImages[imageIndex].width);
-      }
-      if (heightDelta !== 0) {
-        updatedImages[imageIndex].height += heightDelta;
-        updatedImages[imageIndex].height = Math.max(50, updatedImages[imageIndex].height);
-      }
-      setPlacedImages(updatedImages);
-    }
-  };
-
   const handleZoom = (factor) => {
     if (selectedImageIndex === null) return;
 
     const updatedImages = [...placedImages];
     const imageIndex = updatedImages.findIndex(img => img.gridId === selectedImageIndex);
     if (imageIndex !== -1) {
-      updatedImages[imageIndex].scale *= factor;
-      updatedImages[imageIndex].scale = Math.max(0.1, Math.min(5, updatedImages[imageIndex].scale));
+      updatedImages[imageIndex].scaleX *= factor;
+      updatedImages[imageIndex].scaleY *= factor;
+      updatedImages[imageIndex].scaleX = Math.max(0.1, Math.min(5, updatedImages[imageIndex].scaleX));
+      updatedImages[imageIndex].scaleY = Math.max(0.1, Math.min(5, updatedImages[imageIndex].scaleY));
       setPlacedImages(updatedImages);
     }
   };
@@ -667,7 +640,7 @@ export default function RightSide({
     e.evt.preventDefault();
     setSelectedImageIndex(imageIndex);
     setContextMenu({
-      visible: true,
+      visible: type !== 'image',
       x: e.evt.clientX,
       y: e.evt.clientY,
       type,
@@ -676,7 +649,14 @@ export default function RightSide({
     });
   };
 
-  // Handle sticker placement when selectedSticker changes
+  const handleChangeLayout = () => {
+    if (selectedPartition === 'left') {
+      setLayoutModeLeft((prev) => (prev + 1) % 4);
+    } else if (selectedPartition === 'right') {
+      setLayoutModeRight((prev) => (prev + 1) % 4);
+    }
+  };
+
   useEffect(() => {
     if (selectedSticker && selectedImageIndex !== null) {
       const updatedImages = [...placedImages];
@@ -695,7 +675,7 @@ export default function RightSide({
         });
         setPlacedImages(updatedImages);
         setSelectedElement({ type: 'sticker', imageIndex: selectedImageIndex, elementIndex: updatedImages[imgIndex].stickers.length - 1 });
-        if (onStickerPlaced) onStickerPlaced(); // Reset sticker in parent
+        if (onStickerPlaced) onStickerPlaced();
       }
     }
   }, [selectedSticker, selectedImageIndex, onStickerPlaced]);
@@ -711,282 +691,303 @@ export default function RightSide({
       };
     }
   }, [gridPositions, placedImages]);
-  const [showPageLayout, setShowPageLayout] = useState(false)
 
   return (
-    <>
-    <div className="flex w-full">
-      <div className="w-[100px] p-4 border-r space-y-4 bg-gray-100 border-2">
-        {/* Text Tools */}
-        <div onClick={handleAddText} className="border-[1px] p-[10px] rounded-[2px] border-[#E0E0E0] cursor-pointer w-[40px]">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10.0002 14.0007H6.00016M8.00016 2V14M8.00016 2C8.92483 2 极客时间 2.02 11.0588 2.11733C11.4588 2.15867 11.6588 2.17933 11.8362 2.252C12.0214 2.33032 12.187 极客时间 2.44855 12.3212 2.59824C12.4555 2.74793 12.555 2.92541 12.6128 3.118C12.6668 3.30267 12.6668 3.51333 12.极客时间 3.93467M8.00016 2C7.0755 2 5.88683 2.02 4.9415 2.11733C4.5415 2.15867 4.3415 2.17933 4.16416 2.252C3.97885 2.33024 3.81309 2.44843 3.67872 2.59813C3.54435 2.74783 3.44468 2.92534 3.38683 3.118C3.3335 3.30267 3.3335 3.51333 3.3335 3.93467" stroke="#A8C3A0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-          <p className="font-semibold text-[8px] font-sans text-[#727273]">Text</p>
-        </div>
-        {/* Grid Count */}
-        <div className="border-[1px] p-[极客时间] rounded-[2px] border-[#E0E0E0] cursor-pointer w-[40px] relative">
-          <div className="flex items-center justify-center flex-col">
-            <div onClick={() => setShowPageLayout(!showPageLayout)} className="flex items-center justify-center flex-col">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M1.6001 1.59961H5.6001V10.3996H1.6001V1.59961ZM6.4001 1.59961H10.4001V5.59961H极客时间 1V1.59961ZM11.2001 1.59961H14.4001V14.3996H11.2001V1.59961ZM6.4001 6.39961H10.4001V10.3996H6.4001V6.39961ZM1.6001 11.1996H10.4001V14.3996H1.6001V11.1996Z" fill="#A8C3A0" />
-              </svg>
-              <p className="font-semibold text-[8px] font-sans text-[#727273] text-center">Photo Layout</p>
-            </div>
-            {showPageLayout && (
-              <div className="flex flex-col items-center mt-1 absolute -right-14 top-0 z-[100] bg-white p-2 rounded shadow">
-                <div className="flex mb-2">
-                  <button 
-                    onClick={() => setSelectedPartition('left')} 
-                    className={`px-2 py-1 text-xs ${selected极客时间 === 'left' ? 'bg-green-200' : 'bg-gray-100'} border rounded-l`}
-                  >
-                    Left
-                  </button>
-                  <button 
-                    onClick={() => setSelectedPartition('right')} 
-                    className={`px-2 py-1 text-xs ${selectedPartition === 'right' ? 'bg-green-200' : 'bg-gray-100'} border rounded-r`}
-                  >
-                    Right
-                  </button>
-                </div>
-                <div className="flex">
-                  <button onClick={() => setGridCount(prev => ({...prev, [selectedPartition]: Math.max(1, prev[selectedPartition] - 1)}))} className="px-2 py-[0.5px] bg-white border rounded-l">
-                    -
-                  </button>
-                  <button onClick={() => setGridCount(prev => ({...prev, [selectedPartition]: Math.min(12, prev[selectedPartition] + 1)}))} className="px-2 py-[0.5px] bg-white border rounded-r">
-                    +
-                  </button>
-                </div>
+    <div className="flex w-full h-[90vh] justify-start items-start bg-gray-200">
+      <div className="flex w-[1280px] h-[100%] gap-4 items-start">
+        <div className="w-[100px] h-full p-4 border-r space-y-4 bg-gray-100 border-2">
+          <div onClick={handleAddText} className="border-[1px] p-[10px] rounded-[2px] border-[#E0E0E0] cursor-pointer w-[40px]">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M10.0002 14.0007H6.00016M8.00016 2V14M8.00016 2C8.92483 2 9.9135 2.02 11.0588 2.11733C11.4588 2.15867 11.6588 2.17933 11.8362 2.252C12.0214 2.33032 12.187 2.44855 12.3212 2.59824C12.4555 2.74793 12.555 2.92541 12.6128 3.118C12.6668 3.30267 12.6668 3.51333 12.6668 3.93467M8.00016 2C7.0755 2 5.88683 2.02 4.9415 2.11733C4.5415 2.15867 4.3415 2.17933 4.16416 2.252C3.97885 2.33024 3.81309 2.44843 3.67872 2.59813C3.54435 2.74783 3.44468 2.92534 3.38683 3.118C3.3335 3.30267 3.3335 3.51333 3.3335 3.93467" stroke="#A8C3A0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <p className="font-semibold text-[8px] font-sans text-[#727273]">Text</p>
+          </div>
+          <div className="border-[1px] p-[10px] rounded-[2px] border-[#E0E0E0] cursor-pointer w-[40px] relative">
+            <div className="flex items-center justify-center flex-col">
+              <div onClick={(e) => { e.stopPropagation(); setShowPageLayout(!showPageLayout) }} className="flex items-center justify-center flex-col">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M1.6001 1.59961H5.6001V10.3996H1.6001V1.59961ZM6.4001 1.59961H10.4001V5.59961H6.4001V1.59961ZM11.2001 1.59961H14.4001V14.3996H11.2001V1.59961ZM6.4001 6.39961H10.4001V10.3996H6.4001V6.39961ZM1.6001 11.1996H10.4001V14.3996H1.6001V11.1996Z" fill="#A8C3A0" />
+                </svg>
+                <p className="font-semibold text-[8px] font-sans text-[#727273] text-center">Photo Layout</p>
               </div>
-            )}
+              {showPageLayout && (
+                <div className="flex flex-col items-center mt-1 absolute -right-14 top-0 z-[100] bg-white p-2 rounded shadow">
+                  <div className="flex mb-2">
+                    <button 
+                      onClick={() => setSelectedPartition('left')} 
+                      className={`px-2 py-1 text-xs ${selectedPartition === 'left' ? 'bg-green-200' : 'bg-gray-100'} border rounded-l`}
+                    >
+                      Left
+                    </button>
+                    <button 
+                      onClick={() => setSelectedPartition('right')} 
+                      className={`px-2 py-1 text-xs ${selectedPartition === 'right' ? 'bg-green-200' : 'bg-gray-100'} border rounded-r`}
+                    >
+                      Right
+                    </button>
+                  </div>
+                  <div className="flex mb-2">
+                    <button onClick={() => setGridCount(prev => ({...prev, [selectedPartition]: Math.max(1, prev[selectedPartition] - 1)}))} className="px-2 py-[0.5px] bg-white border rounded-l">
+                      -
+                    </button>
+                    <button onClick={() => setGridCount(prev => ({...prev, [selectedPartition]: Math.min(12, prev[selectedPartition] + 1)}))} className="px-2 py-[0.5px] bg-white border rounded-r">
+                      +
+                    </button>
+                  </div>
+                  <button 
+                    onClick={handleChangeLayout} 
+                    className="px-2 py-1 text-xs bg-blue-200 border rounded mb-2"
+                  >
+                    Change Layout
+                  </button>
+                  <button 
+                    onClick={() => setShowPageLayout(false)} 
+                    className="px-2 py-1 text-xs bg-red-200 border rounded"
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-      <div className="flex-1 flex justify-center items-center bg-gray-200 relative">
-        <Stage
-          ref={stageRef}
-          width={1200}
-          height={800}
-          onClick={() => {
-            setSelectedImageIndex(null);
-            setSelectedElement({ type: null, imageIndex: null, elementIndex: null });
-            setContextMenu({ visible: false, x: 0, y: 0, type: null, imageIndex: null });
-          }}
-          onContextMenu={(e) => {
-            setSelectedImageIndex(null);
-            setSelected极客时间({ type: null, imageIndex: null, elementIndex: null });
-            setContextMenu({ visible: false, x: 0, y: 0, type: null, imageIndex: null });
-          }}
-        >
-          <Layer>
-            {/* Background Image */}
-            <KonvaImage image={bgImage} width={1200} height={800} fill={bgType === 'plain' ? selectedBg : 'transparent'} />
-            
-            {/* Partition selection highlights */}
-            <Rect
-              x={0}
-              y={0}
-              width={580}
-              height={800}
-              fill={selectedPartition === 'left' ? 'rgba(168, 195, 160, 0.1)' : 'transparent'}
-              stroke={selectedPartition === 'left' ? '#A8C3A0' : 'transparent'}
-              strokeWidth={2}
-              onClick={(e) => handlePartitionClick('left', e)}
-            />
-            <Rect
-              x={600}
-              y={0}
-              width={580}
-              height={800}
-              fill={selectedPartition === 'right' ? 'rgba(168, 195, 160, 0.1)' : 'transparent'}
-              stroke={selectedPartition === 'right' ? '#A8C3A0' : 'transparent'}
-              strokeWidth={2}
-              onClick={(e) => handlePartitionClick('right', e)}
-            />
-            
-            {/* Grid Frames */}
-            {gridPositions.map((frame, i) => {
-              const imageInThisGrid = placedImages.find(img => img.gridId === frame.id);
-              const imageIndex = placedImages.findIndex(img => img.gridId === frame.id);
-              const image = loadedImages[imageIndex] || new Image();
-              const fill = imageInThisGrid ? "transparent" : "#f0f0f0";
-              return (
-                <Group
-                  key={`grid-${i}`}
-                  ref={gridRefs.current[i]}
-                  x={frame.x}
-                  y={frame.y}
-                  draggable={frame.shape === "rect"}
-                  onDragEnd={(e) => frame.shape === "rect" && handleGridDragEnd(frame.id, e)}
-                  onClick={(e) => imageInThisGrid && handleImageClick(frame.id, e)}
-                  onTransformEnd={(e) => frame.shape === "极客时间" && handleTransformEnd(frame.id, e)}
-                  onContextMenu={(e) => image极客时间Grid && handleContextMenu('image', frame.id, null, e)}
-                  scaleX={imageInThisGrid?.scale || 1}
-                  scaleY={imageInThisGrid?.scale || 1}
-                  rotation={imageInThisGrid?.rotation || 0}
-                >
-                  {frame.shape === "rect" && (
-                    <Rect
-                      width={frame.width}
-                      height={frame.height}
-                      fill={fill}
-                      stroke="#ddd"
-                      strokeWidth={1}
-                      cornerRadius={8}
-                    />
-                  )}
-                  {frame.shape === "line" && (
-                    <Rect
-                      width={frame.width}
-                      height={frame.height}
-                      fill="#ddd"
-                      strokeWidth={0}
-                    />
-                  )}
-                  {!imageInThisGrid && frame.shape === "rect" && (
-                    <Text
-                      text="Drag here"
-                      x={0}
-                      y={frame.height / 2 - 20}
-                      width={frame.width}
-                      align="center"
-                      fontSize={20}
-                      fill="gray"
-                    />
-                  )}
-                  {imageInThisGrid && (
-                    <>
+        <div className="flex-1 flex justify-center items-center bg-gray-200 relative">
+          <Stage
+            ref={stageRef}
+            width={1280}
+            height={650}
+            onClick={() => {
+              setSelectedImageIndex(null);
+              setSelectedElement({ type: null, imageIndex: null, elementIndex: null });
+              setContextMenu({ visible: false, x: 0, y: 0, type: null, imageIndex: null });
+              setShowPageLayout(false);
+            }}
+            onContextMenu={(e) => {
+              e.evt.preventDefault();
+              setSelectedImageIndex(null);
+              setSelectedElement({ type: null, imageIndex: null, elementIndex: null });
+              setContextMenu({ visible: false, x: 0, y: 0, type: null, imageIndex: null });
+              setShowPageLayout(false);
+            }}
+          >
+            <Layer>
+              <KonvaImage image={bgImage} width={1280} height={650} fill={bgType === 'plain' ? selectedBg : 'transparent'} />
+              
+              <Rect
+                x={0}
+                y={0}
+                width={580}
+                height={780}
+                fill={selectedPartition === 'left' ? 'rgba(168, 195, 160, 0.1)' : 'transparent'}
+                stroke="transparent"
+                strokeWidth={0}
+                onClick={(e) => handlePartitionClick('left', e)}
+              />
+              <Rect
+                x={620}
+                y={0}
+                width={580}
+                height={780}
+                fill={selectedPartition === 'right' ? 'rgba(168, 195, 160, 0.1)' : 'transparent'}
+                stroke="transparent"
+                strokeWidth={0}
+                onClick={(e) => handlePartitionClick('right', e)}
+              />
+              
+              {gridPositions.map((frame, i) => {
+                const imageInThisGrid = placedImages.find(img => img.gridId === frame.id);
+                const imageIndex = placedImages.findIndex(img => img.gridId === frame.id);
+                const image = loadedImages[imageIndex] || new Image();
+                const fill = imageInThisGrid ? "transparent" : "#f0f0f0";
+                return (
+                  <Group
+                    key={`grid-${i}`}
+                    ref={gridRefs.current[i]}
+                    x={frame.x}
+                    y={frame.y}
+                    draggable={frame.shape === "rect"}
+                    onDragEnd={(e) => frame.shape === "rect" && handleGridDragEnd(frame.id, e)}
+                    onClick={(e) => imageInThisGrid && handleImageClick(frame.id, e)}
+                    onDblClick={(e) => imageInThisGrid && handleImageDblClick(frame.id, e)}
+                    onTransformEnd={(e) => frame.shape === "rect" && handleTransformEnd(frame.id, e)}
+                    onContextMenu={(e) => imageInThisGrid && handleContextMenu('image', frame.id, null, e)}
+                    scaleX={imageInThisGrid?.scaleX || 1}
+                    scaleY={imageInThisGrid?.scaleY || 1}
+                    rotation={imageInThisGrid?.rotation || 0}
+                  >
+                    {frame.shape === "rect" && (
                       <Rect
-                        width={imageInThisGrid.width}
-                        height={imageInThisGrid.height}
-                        fill="white"
+                        width={frame.width}
+                        height={frame.height}
+                        fill={fill}
                         stroke="#ddd"
                         strokeWidth={1}
                         cornerRadius={8}
                       />
-                      <KonvaImage
-                        image={image}
-                        width={imageInThisGrid.width}
-                        height={imageInThisGrid.height}
-                        cornerRadius={8}
+                    )}
+                    {frame.shape === "line" && (
+                      <Rect
+                        width={frame.width}
+                        height={frame.height}
+                        fill="#ddd"
+                        strokeWidth={0}
                       />
-                      {imageInThisGrid.texts.map((text, textIndex) => (
-                        <Text
-                          key={`text-${textIndex}`}
-                          name={`text-${textIndex}`}
-                          x极客时间={text.x}
-                          y={text.y}
-                          text={text.text}
-                          fontSize={text.fontSize}
-                          fill={text.fill}
-                          width={text.width}
-                          height={text.height}
-                          scaleX={text.scaleX}
-                          scaleY={text.scaleY}
-                          rotation={text.rotation}
-                          draggable={text.draggable}
-                          onClick={(e) => handleElementClick('text', frame.id, textIndex, e)}
-                          onDblClick={(极客时间) => handleTextDblClick(frame.id, textIndex, e)}
-                          onTransformEnd={(e) => handleTextTransformEnd(frame.id, textIndex, e)}
-                          onContextMenu={(e) => handleContextMenu('text', frame.id, textIndex, e)}
-                          onDragStart={(e) => {
-                            e.cancelBubble = true;
-                          }}
-                          onDragEnd={(e) => {
-                            e.cancelBubble = true;
-                            const updatedImages = [...placedImages];
-                            const imgIndex = updatedImages.findIndex(img => img.gridId === frame.id);
-                            updatedImages[imgIndex].texts[textIndex].x = e.target.x();
-                            updatedImages[imgIndex].texts[textIndex].y = e.target.y();
-                            setPlacedImages(updatedImages);
-                          }}
+                    )}
+                    {!imageInThisGrid && frame.shape === "rect" && (
+                      <Text
+                        text="Drag here"
+                        x={0}
+                        y={frame.height / 2 - 20}
+                        width={frame.width}
+                        align="center"
+                        fontSize={20}
+                        fill="gray"
+                      />
+                    )}
+                    {imageInThisGrid && (
+                      <>
+                        <Rect
+                          width={imageInThisGrid.width}
+                          height={imageInThisGrid.height}
+                          fill="white"
+                          stroke="#ddd"
+                          strokeWidth={1}
+                          cornerRadius={8}
                         />
-                      ))}
-                      {imageInThisGrid.stickers.map((sticker, stickerIndex) => (
-                        <Text
-                          key={`sticker-${stickerIndex}`}
-                          name={`sticker-${stickerIndex}`}
-                          x={sticker.x}
-                          y={sticker.y}
-                          text={sticker.sticker}
-                          fontSize={50}
-                          fill="black"
-                          width={sticker.width}
-                          height={sticker.height}
-                          scaleX={sticker.scaleX}
-                          scaleY={sticker.scaleY}
-                          rotation={sticker.rotation}
-                          draggable={sticker.draggable}
-                          onClick={(e) => handleElementClick('sticker', frame.id, stickerIndex, e)}
-                          onTransformEnd={(e) => handleStickerTransformEnd(frame.id, stickerIndex, e)}
-                          onContextMenu={(e) => handleContextMenu('sticker', frame.id, stickerIndex, e)}
-                          onDragStart={(e) => {
-                            e.cancelBubble = true;
-                          }}
-                          onDragEnd={(e) => {
-                            e.cancelBubble = true;
-                            const updatedImages = [...placedImages];
-                            const imgIndex = updatedImages.findIndex(img => img.gridId === frame.id);
-                            updatedImages[imgIndex].stickers[stickerIndex].x = e.target.x();
-                            updatedImages[img极客时间].stickers[stickerIndex].y = e.target.y();
-                            setPlacedImages(updatedImages);
-                          }}
+                        <KonvaImage
+                          image={image}
+                          width={imageInThisGrid.width}
+                          height={imageInThisGrid.height}
+                          cornerRadius={8}
                         />
-                      ))}
-                    </>
-                  )}
-                </Group>
-              );
-            })}
-            <Transformer ref={imageTransformerRef} />
-            <Transformer ref={textTransformerRef} />
-            <Transformer ref={stickerTransformerRef} />
-          </Layer>
-        </Stage>
+                        {imageInThisGrid.texts.map((text, textIndex) => (
+                          <Text
+                            key={`text-${textIndex}`}
+                            name={`text-${textIndex}`}
+                            x={text.x}
+                            y={text.y}
+                            text={text.text}
+                            fontSize={text.fontSize}
+                            fill={text.fill}
+                            width={text.width}
+                            height={text.height}
+                            scaleX={text.scaleX}
+                            scaleY={text.scaleY}
+                            rotation={text.rotation}
+                            draggable={text.draggable}
+                            onClick={(e) => handleElementClick('text', frame.id, textIndex, e)}
+                            onDblClick={(e) => handleTextDblClick(frame.id, textIndex, e)}
+                            onTransformEnd={(e) => handleTextTransformEnd(frame.id, textIndex, e)}
+                            onContextMenu={(e) => handleContextMenu('text', frame.id, textIndex, e)}
+                            onDragStart={(e) => {
+                              e.cancelBubble = true;
+                            }}
+                            onDragEnd={(e) => {
+                              e.cancelBubble = true;
+                              const updatedImages = [...placedImages];
+                              const imgIndex = updatedImages.findIndex(img => img.gridId === frame.id);
+                              updatedImages[imgIndex].texts[textIndex].x = e.target.x();
+                              updatedImages[imgIndex].texts[textIndex].y = e.target.y();
+                              setPlacedImages(updatedImages);
+                            }}
+                          />
+                        ))}
+                        {imageInThisGrid.stickers.map((sticker, stickerIndex) => (
+                          <Text
+                            key={`sticker-${stickerIndex}`}
+                            name={`sticker-${stickerIndex}`}
+                            x={sticker.x}
+                            y={sticker.y}
+                            text={sticker.sticker}
+                            fontSize={50}
+                            fill="black"
+                            width={sticker.width}
+                            height={sticker.height}
+                            scaleX={sticker.scaleX}
+                            scaleY={sticker.scaleY}
+                            rotation={sticker.rotation}
+                            draggable={sticker.draggable}
+                            onClick={(e) => handleElementClick('sticker', frame.id, stickerIndex, e)}
+                            onTransformEnd={(e) => handleStickerTransformEnd(frame.id, stickerIndex, e)}
+                            onContextMenu={(e) => handleContextMenu('sticker', frame.id, stickerIndex, e)}
+                            onDragStart={(e) => {
+                              e.cancelBubble = true;
+                            }}
+                            onDragEnd={(e) => {
+                              e.cancelBubble = true;
+                              const updatedImages = [...placedImages];
+                              const imgIndex = updatedImages.findIndex(img => img.gridId === frame.id);
+                              updatedImages[imgIndex].stickers[stickerIndex].x = e.target.x();
+                              updatedImages[imgIndex].stickers[stickerIndex].y = e.target.y();
+                              setPlacedImages(updatedImages);
+                            }}
+                          />
+                        ))}
+                      </>
+                    )}
+                  </Group>
+                );
+              })}
+              <Transformer
+                ref={imageTransformerRef}
+                keepRatio={false}
+                enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right', 'top-center', 'bottom-center']}
+              />
+              <Transformer
+                ref={textTransformerRef}
+                keepRatio={false}
+                enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right', 'top-center', 'bottom-center']}
+              />
+              <Transformer
+                ref={stickerTransformerRef}
+                keepRatio={false}
+                enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right', 'top-center', 'bottom-center']}
+              />
+            </Layer>
+          </Stage>
 
-        {contextMenu.visible && contextMenu.type === 'image' && (
-          <ImageEditor
-            onClose={() => setContextMenu({ visible: false, x: 0, y: 0, type: null, imageIndex: null })}
-            onDelete={() => {
-              const imageInGrid = placedImages.find(img => img.gridId === contextMenu.imageIndex);
-              if (imageInGrid) {
-                handleImageDelete(imageInGrid.id);
-              }
-              setContextMenu({ visible: false, x: 0, y: 0, type: null, imageIndex: null });
-            }}
-            onResize={handleResize}
-            onZoom={handleZoom}
-            selectedImage={placedImages.find(img => img.gridId === contextMenu.imageIndex)}
-          />
-        )}
-
-        {contextMenu.visible && (contextMenu.type === 'text' || contextMenu.type === 'sticker') && (
-          <div
-            style={{
-              position: "absolute",
-              top: contextMenu.y,
-              left: contextMenu.x,
-              zIndex: 20,
-              background: "white",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              padding: "4px",
-              boxShadow: "0 0 5px rgba(0,0,0,0.2)",
-            }}
-          >
-            <div
-              onClick={() => {
-                handleElementDelete(contextMenu.imageIndex, contextMenu.type, contextMenu.elementIndex);
+          {contextMenu.visible && contextMenu.type === 'image' && (
+            <ImageEditor
+              onClose={() => setContextMenu({ visible: false, x: 0, y: 0, type: null, imageIndex: null })}
+              onDelete={() => {
+                const imageInGrid = placedImages.find(img => img.gridId === contextMenu.imageIndex);
+                if (imageInGrid) {
+                  handleImageDelete(imageInGrid.id);
+                }
                 setContextMenu({ visible: false, x: 0, y: 0, type: null, imageIndex: null });
               }}
-              style={{ padding: "2px 8px", cursor: "pointer", color: "极客时间" }}
+              onZoom={handleZoom}
+              selectedImage={placedImages.find(img => img.gridId === contextMenu.imageIndex)}
+            />
+          )}
+
+          {contextMenu.visible && (contextMenu.type === 'text' || contextMenu.type === 'sticker') && (
+            <div
+              style={{
+                position: "absolute",
+                top: contextMenu.y,
+                left: contextMenu.x,
+                zIndex: 20,
+                background: "white",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                padding: "4px",
+                boxShadow: "0 0 5px rgba(0,0,0,0.2)",
+              }}
             >
-              Delete {contextMenu.type}
+              <div
+                onClick={() => {
+                  handleElementDelete(contextMenu.imageIndex, contextMenu.type, contextMenu.elementIndex);
+                  setContextMenu({ visible: false, x: 0, y: 0, type: null, imageIndex: null });
+                }}
+                style={{ padding: "2px 8px", cursor: "pointer", color: "red" }}
+              >
+                Delete {contextMenu.type}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
-      </>
   );
 }
