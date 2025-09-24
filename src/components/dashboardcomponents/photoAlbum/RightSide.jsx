@@ -250,7 +250,7 @@ export default function RightSide({
 
   const getCurrentGridLayout = () => {
     const stageWidth = 1280;
-    const stageHeight = 780;
+    const stageHeight = 650;
     const padding = 20;
     const middleGap = 40;
     const sideWidth = (stageWidth - middleGap) / 2;
@@ -777,7 +777,7 @@ export default function RightSide({
                 x={0}
                 y={0}
                 width={580}
-                height={780}
+                height={650}
                 fill={selectedPartition === 'left' ? 'rgba(168, 195, 160, 0.1)' : 'transparent'}
                 stroke="transparent"
                 strokeWidth={0}
@@ -787,7 +787,7 @@ export default function RightSide({
                 x={620}
                 y={0}
                 width={580}
-                height={780}
+                height={650}
                 fill={selectedPartition === 'right' ? 'rgba(168, 195, 160, 0.1)' : 'transparent'}
                 stroke="transparent"
                 strokeWidth={0}
