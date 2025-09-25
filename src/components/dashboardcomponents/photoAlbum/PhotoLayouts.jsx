@@ -12,28 +12,28 @@ const gridLayouts = [
     category: '2 photos layouts',
     options: [
       { id: 2, preview: [[1, 2]], count: 2 },
-      { id: 3, preview: [[1], [2]], count: 2 }
+      // { id: 3, preview: [[1], [2]], count: 2 }
     ]
   },
   {
     category: '3 photos layouts',
     options: [
       { id: 4, preview: [[1, 2], [3]], count: 3 },
-      { id: 5, preview: [[1], [2, 3]], count: 3 }
+      // { id: 5, preview: [[1], [2, 3]], count: 3 }
     ]
   },
   {
     category: '4 photos layouts',
     options: [
       { id: 6, preview: [[1, 2], [3, 4]], count: 4 },
-      { id: 7, preview: [[1], [2, 3, 4]], count: 4, rowHeights: ['50%', '50%'], colWidths: ['50%', '16.67%', '16.67%', '16.67%'] },
-      { id: 8, preview: [[1, 2, 3], [4]], count: 4, rowHeights: ['50%', '50%'] },
-      { id: 9, preview: [[1, 2], [3], [4]], count: 4, rowHeights: ['33%', '33%', '33%'] },
-      { id: 10, preview: [[1], [2, 3], [4]], count: 4, rowHeights: ['33%', '33%', '33%'] },
-      { id: 11, preview: [[1, 2, 3, 4]], count: 4 },
-      { id: 12, preview: [[1], [2], [3], [4]], count: 4 },
-      // New grid layout added here for the exact image shape
-      { id: 13, preview: [[1, 2], [3, 4]], count: 4, rowHeights: ['50%', '50%'], colWidths: ['50%', '50%'] } // Matching 2x2 layout
+      // { id: 7, preview: [[1], [2, 3, 4]], count: 4, rowHeights: ['50%', '50%'], colWidths: ['50%', '16.67%', '16.67%', '16.67%'] },
+      // { id: 8, preview: [[1, 2, 3], [4]], count: 4, rowHeights: ['50%', '50%'] },
+      // { id: 9, preview: [[1, 2], [3], [4]], count: 4, rowHeights: ['33%', '33%', '33%'] },
+      // { id: 10, preview: [[1], [2, 3], [4]], count: 4, rowHeights: ['33%', '33%', '33%'] },
+      // { id: 11, preview: [[1, 2, 3, 4]], count: 4 },
+      // { id: 12, preview: [[1], [2], [3], [4]], count: 4 },
+      // // New grid layout added here for the exact image shape
+      // { id: 13, preview: [[1, 2], [3, 4]], count: 4, rowHeights: ['50%', '50%'], colWidths: ['50%', '50%'] } // Matching 2x2 layout
     ]
   }
 ];

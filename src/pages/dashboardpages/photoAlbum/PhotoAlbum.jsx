@@ -1,4 +1,3 @@
-// Modified PhotoAlbum.jsx
 import AlbunMenuBar from '@/components/dashboardcomponents/photoAlbum/AlbunMenuBar';
 import LeftSide from '@/components/dashboardcomponents/photoAlbum/LeftSide';
 import MiddleSide from '@/components/dashboardcomponents/photoAlbum/MiddleSide';
@@ -13,12 +12,13 @@ export default function PhotoAlbum() {
   const [selectedSticker, setSelectedSticker] = useState(null);
   const [selectedText, setSelectedText] = useState(null);
   const [selectedPhotoLayout, setSelectedPhotoLayout] = useState(null);
+  const [activeLeftBar, setActiveLeftBar] = useState("Frames");
+
   const handleImageUpload = (event) => {
     const files = Array.from(event.target.files);
     const newImages = files.map((file) => URL.createObjectURL(file));
     setUploadedImages([...uploadedImages, ...newImages]);
   };
-  const [activeLeftBar, setActiveLeftBar] = useState("Frames");
 
   const handleStickerSelect = (sticker) => {
     setSelectedSticker(sticker);
@@ -32,9 +32,19 @@ export default function PhotoAlbum() {
     setSelectedPhotoLayout(layout);
   };
 
+  // Callbacks for undo and redo to be passed to RightSide
+  const [undoRedoCallbacks, setUndoRedoCallbacks] = useState({
+    onUndo: () => {},
+    onRedo: () => {},
+  });
+
+  const registerUndoRedoCallbacks = (callbacks) => {
+    setUndoRedoCallbacks(callbacks);
+  };
+
   return (
     <section className='bg-[#F0F1F5] p-0'>
-      <AlbunMenuBar />
+      <AlbunMenuBar onUndo={undoRedoCallbacks.onUndo} onRedo={undoRedoCallbacks.onRedo} />
       <div className='flex items-start justify-center'>
         <LeftSide activeLeftBar={activeLeftBar} setActiveLeftBar={setActiveLeftBar} />
         <MiddleSide 
@@ -48,7 +58,7 @@ export default function PhotoAlbum() {
           setActiveLeftBar={setActiveLeftBar}
           onSelectSticker={handleStickerSelect}
           onSelectText={handleTextSelect}
-          onSelectLayout={handleLayoutSelect} // Changed to onSelectLayout
+          onSelectLayout={handleLayoutSelect}
         />
         <RightSide 
           bgType={bgType} 
@@ -61,10 +71,9 @@ export default function PhotoAlbum() {
           onTextPlaced={() => setSelectedText(null)}
           selectedPhotoLayout={selectedPhotoLayout}
           onLayoutApplied={() => setSelectedPhotoLayout(null)}
+          registerUndoRedoCallbacks={registerUndoRedoCallbacks}
         />
       </div>
-      
-    
       {/* <PageNavigation /> */}
     </section>
   );

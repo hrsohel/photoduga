@@ -1,6 +1,6 @@
-import React from 'react'
+import React from 'react';
 
-export default function AlbunMenuBar() {
+export default function AlbunMenuBar({ onUndo, onRedo }) {
     return (
         <div className='px-[60px] py-[8px] bg-white flex items-center justify-between shadow-[0_2px_6px_0_rgba(0,0,0,0.5)] mb-1'>
             <div className='flex items-center justify-center gap-5'>
@@ -15,17 +15,16 @@ export default function AlbunMenuBar() {
                     </defs>
                 </svg>
                 <img src="/23d53f7d1d878b83fe1116679f981dc99c5ae301.png" alt="" width={`70px`} height={`70px`} className='object-cover' />
-                <div className='flex items-center justify-center flex-col'>
+                <div className='flex items-center justify-center flex-col cursor-pointer' onClick={onUndo}>
                     <svg width="24" height="25" viewBox="0 0 24 25" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M11 18.5H14.75C16.1424 18.5 17.4777 17.9469 18.4623 16.9623C19.4469 15.9777 20 14.6424 20 13.25C20 11.8576 19.4469 10.5223 18.4623 9.53769C17.4777 8.55312 16.1424 8 14.75 8H5M7.5 4.5L4 8L7.5 11.5" stroke="#A8C3A0" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                     <p className='font-[600] font-sans text-[16px] text-center' style={{ color: "rgba(114, 114, 115, 1)" }}>Cancel</p>
                 </div>
-                <div className='flex items-center justify-center flex-col'>
+                <div className='flex items-center justify-center flex-col cursor-pointer' onClick={onRedo}>
                     <svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M13.5 18.5H9.75C8.35761 18.5 7.02226 17.9469 6.03769 16.9623C5.05312 15.9777 4.5 14.6424 4.5 13.25C4.5 11.8576 5.05312 10.5223 6.03769 9.53769C7.02226 8.55312 8.35761 8 9.75 8L19.5 8M17 4.5L20.5 8L17 11.5" stroke="#A8C3A0" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
-
                     <p className='font-[600] font-sans text-[16px] text-center' style={{ color: "rgba(114, 114, 115, 1)" }}>Regularly</p>
                 </div>
             </div>
@@ -41,7 +40,6 @@ export default function AlbunMenuBar() {
                         </clipPath>
                     </defs>
                 </svg>
-
             </div>
             <div className='flex items-center justify-center gap-[20px]'>
                 <div className='flex items-center justify-center flex-col'>
@@ -78,5 +76,5 @@ export default function AlbunMenuBar() {
                 </div>
             </div>
         </div>
-    )
+    );
 }

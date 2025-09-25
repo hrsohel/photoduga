@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Stage, Layer, Image as KonvaImage, Text, Group, Transformer, Rect } from "react-konva";
 import useImage from "use-image";
-import PageNavigation from "./PageNavigation";
 import Konva from "konva";
 
 const loadImage = async (src) => {
@@ -64,7 +63,8 @@ export default function RightSide({
   selectedSticker, 
   onStickerPlaced,
   selectedPhotoLayout,
-  onLayoutApplied 
+  onLayoutApplied,
+  registerUndoRedoCallbacks
 }) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   const [selectedElement, setSelectedElement] = useState({ type: null, imageIndex: null, elementIndex: null });
@@ -81,6 +81,7 @@ export default function RightSide({
   const [placedImages, setPlacedImages] = useState([]);
   const [loadedImages, setLoadedImages] = useState([]);
   const [selectedPartition, setSelectedPartition] = useState('left');
+  const [isRestoring, setIsRestoring] = useState(false);
   const stageRef = useRef();
   const gridRefs = useRef([]);
   const imageTransformerRef = useRef();
@@ -90,6 +91,105 @@ export default function RightSide({
   const [layoutModeLeft, setLayoutModeLeft] = useState(0); // 0-3 for left
   const [layoutModeRight, setLayoutModeRight] = useState(0); // 0-3 for right
   const previousGridPositionsRef = useRef([]);
+  const [lastStableState, setLastStableState] = useState({ gridCount: { left: 5, right: 5 }, layoutModeLeft: 0, layoutModeRight: 0 });
+
+  // Undo/Redo state management
+  const [history, setHistory] = useState([
+    {
+      placedImages: [],
+      gridCount: { left: 5, right: 5 },
+      gridPositions: [],
+      layoutModeLeft: 0,
+      layoutModeRight: 0,
+      bgType: 'plain',
+      selectedBg: '#D81B60',
+    },
+  ]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+
+  const saveToHistory = () => {
+    const newState = {
+      placedImages: JSON.parse(JSON.stringify(placedImages)),
+      gridCount: { ...gridCount },
+      gridPositions: JSON.parse(JSON.stringify(gridPositions)),
+      layoutModeLeft,
+      layoutModeRight,
+      bgType,
+      selectedBg,
+    };
+    const currentState = history[historyIndex];
+    const hasChanges = !(
+      JSON.stringify(newState.placedImages) === JSON.stringify(currentState.placedImages) &&
+      JSON.stringify(newState.gridCount) === JSON.stringify(currentState.gridCount) &&
+      JSON.stringify(newState.gridPositions) === JSON.stringify(currentState.gridPositions) &&
+      newState.layoutModeLeft === currentState.layoutModeLeft &&
+      newState.layoutModeRight === currentState.layoutModeRight &&
+      newState.bgType === currentState.bgType &&
+      newState.selectedBg === currentState.selectedBg
+    );
+    if (hasChanges) {
+      const newHistory = history.slice(0, historyIndex + 1);
+      newHistory.push(newState);
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+    }
+  };
+
+  const undo = () => {
+    if (historyIndex > 0) {
+      setIsRestoring(true);
+      const prevIndex = historyIndex - 1;
+      const prevState = history[prevIndex];
+      setPlacedImages(prevState.placedImages);
+      setGridCount(prevState.gridCount);
+      setGridPositions(prevState.gridPositions);
+      setLayoutModeLeft(prevState.layoutModeLeft);
+      setLayoutModeRight(prevState.layoutModeRight);
+      setBgType(prevState.bgType);
+      setSelectedBg(prevState.selectedBg);
+      setHistoryIndex(prevIndex);
+      setSelectedElement({ type: null, imageIndex: null, elementIndex: null });
+      setSelectedImageIndex(null);
+    }
+  };
+
+  const redo = () => {
+    if (historyIndex < history.length - 1) {
+      setIsRestoring(true);
+      const nextIndex = historyIndex + 1;
+      const nextState = history[nextIndex];
+      setPlacedImages(nextState.placedImages);
+      setGridCount(nextState.gridCount);
+      setGridPositions(nextState.gridPositions);
+      setLayoutModeLeft(nextState.layoutModeLeft);
+      setLayoutModeRight(nextState.layoutModeRight);
+      setBgType(nextState.bgType);
+      setSelectedBg(nextState.selectedBg);
+      setHistoryIndex(nextIndex);
+      setSelectedElement({ type: null, imageIndex: null, elementIndex: null });
+      setSelectedImageIndex(null);
+    }
+  };
+
+  const cancelLayoutChange = () => {
+    setGridCount(lastStableState.gridCount);
+    setLayoutModeLeft(lastStableState.layoutModeLeft);
+    setLayoutModeRight(lastStableState.layoutModeRight);
+    setShowPageLayout(false);
+    saveToHistory();
+  };
+
+  useEffect(() => {
+    if (registerUndoRedoCallbacks) {
+      registerUndoRedoCallbacks({ onUndo: undo, onRedo: redo });
+    }
+  }, [registerUndoRedoCallbacks]);
+
+  useEffect(() => {
+    if (isRestoring) {
+      setIsRestoring(false);
+    }
+  }, [isRestoring]);
 
   const [bgImage] = useImage(bgType === 'image' && selectedBg.startsWith('http') ? selectedBg : null);
 
@@ -104,6 +204,7 @@ export default function RightSide({
 
   useEffect(() => {
     if (selectedPhotoLayout) {
+      setLastStableState(prev => ({ ...prev, gridCount: { ...gridCount } }));
       setGridCount(prev => ({
         ...prev,
         [selectedPartition]: selectedPhotoLayout.count
@@ -115,9 +216,10 @@ export default function RightSide({
   }, [selectedPhotoLayout, selectedPartition, onLayoutApplied]);
 
   useEffect(() => {
+    if (isRestoring) return;
     const initialLayout = getCurrentGridLayout();
     setGridPositions(initialLayout);
-  }, [gridCount, selectedPhotoLayout, selectedPartition, layoutModeLeft, layoutModeRight]);
+  }, [gridCount, layoutModeLeft, layoutModeRight, isRestoring]);
 
   useEffect(() => {
     if (previousGridPositionsRef.current.length > 0) {
@@ -141,20 +243,19 @@ export default function RightSide({
     }
     previousGridPositionsRef.current = gridPositions;
     gridRefs.current = gridPositions.map(() => React.createRef());
-    setPlacedImages(prev => {
-      return prev
-        .filter(img => {
-          const cellExists = gridPositions.some(pos => pos.id === img.gridId && pos.shape === "rect");
-          return cellExists;
-        })
-        .map(img => {
-          const newCell = gridPositions.find(pos => pos.id === img.gridId && pos.shape === "rect");
-          if (newCell) {
-            return { ...img, width: newCell.width, height: newCell.height };
-          }
-          return img;
-        });
-    });
+    const updatedImages = placedImages
+      .filter(img => {
+        const cellExists = gridPositions.some(pos => pos.id === img.gridId && pos.shape === "rect");
+        return cellExists;
+      })
+      .map(img => {
+        const newCell = gridPositions.find(pos => pos.id === img.gridId && pos.shape === "rect");
+        if (newCell) {
+          return { ...img, width: newCell.width, height: newCell.height };
+        }
+        return img;
+      });
+    setPlacedImages(updatedImages);
   }, [gridPositions]);
 
   useEffect(() => {
@@ -191,12 +292,11 @@ export default function RightSide({
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Backspace' && selectedElement.type && selectedElement.imageIndex !== null) {
+        let updatedImages = [...placedImages];
         if (selectedElement.type === 'image') {
-          const updatedImages = placedImages.filter(img => img.gridId !== selectedElement.imageIndex);
-          setPlacedImages(updatedImages);
+          updatedImages = updatedImages.filter(img => img.gridId !== selectedElement.imageIndex);
           setSelectedImageIndex(null);
         } else if (selectedElement.type === 'text' || selectedElement.type === 'sticker') {
-          const updatedImages = [...placedImages];
           const imgIndex = updatedImages.findIndex(img => img.gridId === selectedElement.imageIndex);
           if (imgIndex !== -1) {
             if (selectedElement.type === 'text') {
@@ -204,10 +304,11 @@ export default function RightSide({
             } else if (selectedElement.type === 'sticker') {
               updatedImages[imgIndex].stickers.splice(selectedElement.elementIndex, 1);
             }
-            setPlacedImages(updatedImages);
           }
         }
+        setPlacedImages(updatedImages);
         setSelectedElement({ type: null, imageIndex: null, elementIndex: null });
+        saveToHistory();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -264,13 +365,11 @@ export default function RightSide({
       const availableHeight = stageHeight - padding * 2;
 
       if (mode === 0) {
-        // Mode 0: First half horizontal on top, second half full width below
         const halfCount = Math.ceil(count / 2);
         const topHeight = (availableHeight - padding) / 2;
         const bottomCount = count - halfCount;
         const bottomHeight = (availableHeight - topHeight - padding - padding * (bottomCount - 1)) / bottomCount;
 
-        // Top row (first half grids)
         let currentX = startX + padding;
         const topWidth = availableWidth / halfCount;
         for (let i = 0; i < halfCount; i++) {
@@ -287,7 +386,6 @@ export default function RightSide({
           currentX += topWidth + padding;
         }
 
-        // Bottom row(s)
         let currentY = padding + topHeight + padding;
         for (let i = halfCount; i < count; i++) {
           layout.push({
@@ -303,13 +401,11 @@ export default function RightSide({
           currentY += bottomHeight + padding;
         }
       } else if (mode === 1) {
-        // Mode 1: Full height left, remaining vertical on right with total height = left height
         const leftWidth = availableWidth / 3;
         const rightWidth = availableWidth - leftWidth - padding;
         const rightCount = count - 1;
-        const rightHeight = availableHeight / rightCount; // Ensure total height matches left
+        const rightHeight = availableHeight / rightCount;
 
-        // Left grid (full height)
         layout.push({
           x: startX + padding,
           y: padding,
@@ -321,7 +417,6 @@ export default function RightSide({
           gridArea: 'grid1'
         });
 
-        // Right grids (vertical stack, total height = availableHeight)
         let currentY = padding;
         for (let i = 1; i < count; i++) {
           layout.push({
@@ -337,7 +432,6 @@ export default function RightSide({
           currentY += rightHeight + padding;
         }
       } else if (mode === 2) {
-        // Mode 2: Single column, full width grids, height divided equally
         const gridHeight = availableHeight / count;
         let currentY = padding;
         for (let i = 0; i < count; i++) {
@@ -354,7 +448,6 @@ export default function RightSide({
           currentY += gridHeight;
         }
       } else if (mode === 3) {
-        // Mode 3: Single row, full height grids, width divided equally
         const gridWidth = availableWidth / count;
         let currentX = startX + padding;
         for (let i = 0; i < count; i++) {
@@ -450,13 +543,14 @@ export default function RightSide({
           id: Date.now() + Math.random(),
         };
 
+        let updatedImages = [...placedImages];
         if (existingImageIndex !== -1) {
-          const updatedImages = [...placedImages];
           updatedImages[existingImageIndex] = newImage;
-          setPlacedImages(updatedImages);
         } else {
-          setPlacedImages([...placedImages, newImage]);
+          updatedImages.push(newImage);
         }
+        setPlacedImages(updatedImages);
+        saveToHistory();
       } else if (stickerUrl && existingImageIndex !== -1) {
         const updatedImages = [...placedImages];
         const imgIndex = updatedImages.findIndex(img => img.gridId === targetGridIndex);
@@ -473,15 +567,18 @@ export default function RightSide({
             draggable: true,
           });
           setPlacedImages(updatedImages);
+          saveToHistory();
         }
       }
     }
   };
 
   const handleImageDelete = (imageId) => {
-    setPlacedImages(placedImages.filter(img => img.id !== imageId));
+    const updatedImages = placedImages.filter(img => img.id !== imageId);
+    setPlacedImages(updatedImages);
     setSelectedImageIndex(null);
     setSelectedElement({ type: null, imageIndex: null, elementIndex: null });
+    saveToHistory();
   };
 
   const handleElementDelete = (imageIndex, type, elementIndex) => {
@@ -495,6 +592,7 @@ export default function RightSide({
       }
       setPlacedImages(updatedImages);
       setSelectedElement({ type: null, imageIndex: null, elementIndex: null });
+      saveToHistory();
     }
   };
 
@@ -503,6 +601,7 @@ export default function RightSide({
     updatedPositions[index].x = e.target.x();
     updatedPositions[index].y = e.target.y();
     setGridPositions(updatedPositions);
+    saveToHistory();
   };
 
   const handleTransformEnd = (index, e) => {
@@ -522,6 +621,7 @@ export default function RightSide({
       updatedImages[imageIndex].scaleY = scaleY;
       updatedImages[imageIndex].rotation = rotation;
       setPlacedImages(updatedImages);
+      saveToHistory();
     }
 
     node.scaleX(1);
@@ -539,6 +639,7 @@ export default function RightSide({
       updatedImages[imgIndex].texts[textIndex].scaleY = node.scaleY();
       updatedImages[imgIndex].texts[textIndex].rotation = node.rotation();
       setPlacedImages(updatedImages);
+      saveToHistory();
     }
 
     node.scaleX(1);
@@ -556,6 +657,7 @@ export default function RightSide({
       updatedImages[imgIndex].stickers[stickerIndex].scaleY = node.scaleY();
       updatedImages[imgIndex].stickers[stickerIndex].rotation = node.rotation();
       setPlacedImages(updatedImages);
+      saveToHistory();
     }
 
     node.scaleX(1);
@@ -573,6 +675,7 @@ export default function RightSide({
       updatedImages[imageIndex].scaleX = Math.max(0.1, Math.min(5, updatedImages[imageIndex].scaleX));
       updatedImages[imageIndex].scaleY = Math.max(0.1, Math.min(5, updatedImages[imageIndex].scaleY));
       setPlacedImages(updatedImages);
+      saveToHistory();
     }
   };
 
@@ -598,6 +701,7 @@ export default function RightSide({
       updatedImages[imageIndex].texts.push(newText);
       setPlacedImages(updatedImages);
       setSelectedElement({ type: 'text', imageIndex: selectedImageIndex, elementIndex: updatedImages[imageIndex].texts.length - 1 });
+      saveToHistory();
     }
   };
 
@@ -630,6 +734,7 @@ export default function RightSide({
         if (imgIndex !== -1) {
           updatedImages[imgIndex].texts[textIndex].text = area.value;
           setPlacedImages(updatedImages);
+          saveToHistory();
         }
         document.body.removeChild(area);
       }
@@ -650,11 +755,13 @@ export default function RightSide({
   };
 
   const handleChangeLayout = () => {
+    setLastStableState({ gridCount: { ...gridCount }, layoutModeLeft, layoutModeRight });
     if (selectedPartition === 'left') {
       setLayoutModeLeft((prev) => (prev + 1) % 4);
     } else if (selectedPartition === 'right') {
       setLayoutModeRight((prev) => (prev + 1) % 4);
     }
+    saveToHistory();
   };
 
   useEffect(() => {
@@ -676,6 +783,7 @@ export default function RightSide({
         setPlacedImages(updatedImages);
         setSelectedElement({ type: 'sticker', imageIndex: selectedImageIndex, elementIndex: updatedImages[imgIndex].stickers.length - 1 });
         if (onStickerPlaced) onStickerPlaced();
+        saveToHistory();
       }
     }
   }, [selectedSticker, selectedImageIndex, onStickerPlaced]);
@@ -691,6 +799,13 @@ export default function RightSide({
       };
     }
   }, [gridPositions, placedImages]);
+
+  useEffect(() => {
+    if (gridCount.left !== lastStableState.gridCount.left || gridCount.right !== lastStableState.gridCount.right) {
+      setLastStableState(prev => ({ ...prev, gridCount: { ...gridCount } }));
+      saveToHistory();
+    }
+  }, [gridCount]);
 
   return (
     <div className="flex w-full h-[90vh] justify-start items-start bg-gray-200">
@@ -727,10 +842,10 @@ export default function RightSide({
                     </button>
                   </div>
                   <div className="flex mb-2">
-                    <button onClick={() => setGridCount(prev => ({...prev, [selectedPartition]: Math.max(1, prev[selectedPartition] - 1)}))} className="px-2 py-[0.5px] bg-white border rounded-l">
+                    <button onClick={() => { setLastStableState(prev => ({ ...prev, gridCount: { ...gridCount } })); setGridCount(prev => ({...prev, [selectedPartition]: Math.max(1, prev[selectedPartition] - 1)})); saveToHistory(); }} className="px-2 py-[0.5px] bg-white border rounded-l">
                       -
                     </button>
-                    <button onClick={() => setGridCount(prev => ({...prev, [selectedPartition]: Math.min(12, prev[selectedPartition] + 1)}))} className="px-2 py-[0.5px] bg-white border rounded-r">
+                    <button onClick={() => { setLastStableState(prev => ({ ...prev, gridCount: { ...gridCount } })); setGridCount(prev => ({...prev, [selectedPartition]: Math.min(12, prev[selectedPartition] + 1)})); saveToHistory(); }} className="px-2 py-[0.5px] bg-white border rounded-r">
                       +
                     </button>
                   </div>
@@ -741,10 +856,10 @@ export default function RightSide({
                     Change Layout
                   </button>
                   <button 
-                    onClick={() => setShowPageLayout(false)} 
+                    onClick={cancelLayoutChange} 
                     className="px-2 py-1 text-xs bg-red-200 border rounded"
                   >
-                    Close
+                    Cancel
                   </button>
                 </div>
               )}
@@ -889,6 +1004,7 @@ export default function RightSide({
                               updatedImages[imgIndex].texts[textIndex].x = e.target.x();
                               updatedImages[imgIndex].texts[textIndex].y = e.target.y();
                               setPlacedImages(updatedImages);
+                              saveToHistory();
                             }}
                           />
                         ))}
@@ -920,6 +1036,7 @@ export default function RightSide({
                               updatedImages[imgIndex].stickers[stickerIndex].x = e.target.x();
                               updatedImages[imgIndex].stickers[stickerIndex].y = e.target.y();
                               setPlacedImages(updatedImages);
+                              saveToHistory();
                             }}
                           />
                         ))}
