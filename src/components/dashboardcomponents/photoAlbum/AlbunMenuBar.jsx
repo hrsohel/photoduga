@@ -1,6 +1,34 @@
 import React from 'react';
 
-export default function AlbunMenuBar({ onUndo, onRedo }) {
+export default function AlbunMenuBar({ onUndo, onRedo, onSave, albumState }) {
+    const handleSave = () => {
+        if (onSave && albumState) {
+            // Save the album state to localStorage
+            try {
+                // Deep copy to ensure nested objects (like texts and stickers) are properly serialized
+                const stateToSave = {
+                    ...albumState,
+                    placedImages: albumState.placedImages.map(img => ({
+                        ...img,
+                        texts: Array.isArray(img.texts) ? img.texts.map(t => ({ ...t })) : [],
+                        stickers: Array.isArray(img.stickers) ? img.stickers.map(s => ({ ...s })) : [],
+                    })),
+                    gridCount: { ...albumState.gridCount },
+                    gridPositions: albumState.gridPositions.map(pos => ({ ...pos })),
+                    selectedElement: { ...albumState.selectedElement },
+                    contextMenu: { ...albumState.contextMenu },
+                    lastSaved: new Date().toISOString(),
+                };
+                
+                localStorage.setItem('photoAlbumStateAfterSave', JSON.stringify(stateToSave));
+                console.log('Album state saved successfully at:', stateToSave.lastSaved);
+                onSave(stateToSave);
+            } catch (error) {
+                console.error('Error saving album state:', error);
+            }
+        }
+    };
+
     return (
         <div className='px-[60px] py-[8px] bg-white flex items-center justify-between shadow-[0_2px_6px_0_rgba(0,0,0,0.5)] mb-1'>
             <div className='flex items-center justify-center gap-5'>
@@ -42,7 +70,7 @@ export default function AlbunMenuBar({ onUndo, onRedo }) {
                 </svg>
             </div>
             <div className='flex items-center justify-center gap-[20px]'>
-                <div className='flex items-center justify-center flex-col'>
+                <div className='flex items-center justify-center flex-col cursor-pointer' onClick={handleSave}>
                     <svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <g clip-path="url(#clip0_2754_2554)">
                             <path d="M19.5 13.5V18.5C19.5 19.05 19.05 19.5 18.5 19.5H6.5C5.95 19.5 5.5 19.05 5.5 18.5V13.5C5.5 12.95 5.05 12.5 4.5 12.5C3.95 12.5 3.5 12.95 3.5 13.5V19.5C3.5 20.6 4.4 21.5 5.5 21.5H19.5C20.6 21.5 21.5 20.6 21.5 19.5V13.5C21.5 12.95 21.05 12.5 20.5 12.5C19.95 12.5 19.5 12.95 19.5 13.5ZM13.5 13.17L15.38 11.29C15.77 10.9 16.4 10.9 16.79 11.29C17.18 11.68 17.18 12.31 16.79 12.7L13.2 16.29C12.81 16.68 12.18 16.68 11.79 16.29L8.2 12.7C7.81 12.31 7.81 11.68 8.2 11.29C8.59 10.9 9.22 10.9 9.61 11.29L11.5 13.17V4.5C11.5 3.95 11.95 3.5 12.5 3.5C13.05 3.5 13.5 3.95 13.5 4.5V13.17Z" fill="#A8C3A0" />
@@ -54,12 +82,6 @@ export default function AlbunMenuBar({ onUndo, onRedo }) {
                         </defs>
                     </svg>
                     <p className='font-[600] font-sans text-[16px] text-center text-[#727273]'>Save</p>
-                </div>
-                <div className='flex items-center justify-center flex-col'>
-                    <svg width="24" height="25" viewBox="0 0 24 25" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 9.5C12.7956 9.5 13.5587 9.81607 14.1213 10.3787C14.6839 10.9413 15 11.7044 15 12.5C15 13.2956 14.6839 14.0587 14.1213 14.6213C13.5587 15.1839 12.7956 15.5 12 15.5C11.2044 15.5 10.4413 15.1839 9.87868 14.6213C9.31607 14.0587 9 13.2956 9 12.5C9 11.7044 9.31607 10.9413 9.87868 10.3787C10.4413 9.81607 11.2044 9.5 12 9.5ZM12 5C17 5 21.27 8.11 23 12.5C21.27 16.89 17 20 12 20C7 20 2.73 16.89 1 12.5C2.73 8.11 7 5 12 5ZM3.18 12.5C3.98825 14.1503 5.24331 15.5407 6.80248 16.5133C8.36165 17.4858 10.1624 18.0013 12 18.0013C13.8376 18.0013 15.6383 17.4858 17.1975 16.5133C18.7567 15.5407 20.0117 14.1503 20.82 12.5C20.0117 10.8497 18.7567 9.45925 17.1975 8.48675C15.6383 7.51424 13.8376 6.99868 12 6.99868C10.1624 6.99868 8.36165 7.51424 6.80248 8.48675C5.24331 9.45925 3.98825 10.8497 3.18 12.5Z" fill="#A8C3A0" />
-                    </svg>
-                    <p className='font-[600] font-sans text-[16px] text-center text-[#727273]'>Overview</p>
                 </div>
                 <div className='px-[16px] py-[8px] rounded-[40px] flex items-center justify-center gap-[10px]' style={{ background: "linear-gradient(to right, #10200B, #558945)" }}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
