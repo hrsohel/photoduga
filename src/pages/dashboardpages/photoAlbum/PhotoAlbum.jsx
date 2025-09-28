@@ -3,9 +3,10 @@ import LeftSide from '@/components/dashboardcomponents/photoAlbum/LeftSide';
 import MiddleSide from '@/components/dashboardcomponents/photoAlbum/MiddleSide';
 import PageNavigation from '@/components/dashboardcomponents/photoAlbum/PageNavigation';
 import RightSide from '@/components/dashboardcomponents/photoAlbum/RightSide';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 export default function PhotoAlbum() {
+  const stageRef = useRef(null);
   const [uploadedImages, setUploadedImages] = useState([]);
   const [bgType, setBgType] = useState('plain');
   const [selectedBg, setSelectedBg] = useState('#D81B60');
@@ -55,19 +56,10 @@ export default function PhotoAlbum() {
       try {
         const parsed = JSON.parse(savedState);
 
-        // Enhanced validation for placedImages
-        setUploadedImages(Array.isArray(parsed.uploadedImages) ? parsed.uploadedImages : []);
-        setPlacedImages(Array.isArray(parsed.placedImages) ? parsed.placedImages.map(img => ({
-          ...img,
-          texts: Array.isArray(img.texts) ? img.texts.map(t => ({ ...t })) : [],
-          stickers: Array.isArray(img.stickers) ? img.stickers.map(s => ({ ...s })) : [],
-        })) : []);
+        // Load only serializable, non-image data
         setGridPositions(Array.isArray(parsed.gridPositions) ? parsed.gridPositions : []);
-        setLoadedImages(Array.isArray(parsed.loadedImages) ? parsed.loadedImages : []);
-
         setGridCount(typeof parsed.gridCount === 'object' ? parsed.gridCount : { left: 5, right: 5 });
         setLastStableState(typeof parsed.lastStableState === 'object' ? parsed.lastStableState : { gridCount: { left: 5, right: 5 }, layoutModeLeft: 0, layoutModeRight: 0 });
-
         setBgType(typeof parsed.bgType === 'string' ? parsed.bgType : 'plain');
         setSelectedBg(typeof parsed.selectedBg === 'string' ? parsed.selectedBg : '#D81B60');
         setSelectedSticker(typeof parsed.selectedSticker === 'string' ? parsed.selectedSticker : null);
@@ -76,22 +68,6 @@ export default function PhotoAlbum() {
         setActiveLeftBar(typeof parsed.activeLeftBar === 'string' ? parsed.activeLeftBar : "Frames");
         setLayoutModeLeft(typeof parsed.layoutModeLeft === 'number' ? parsed.layoutModeLeft : 0);
         setLayoutModeRight(typeof parsed.layoutModeRight === 'number' ? parsed.layoutModeRight : 0);
-        setHistory(Array.isArray(parsed.history) && parsed.history.length > 0 ? parsed.history : [
-          {
-            placedImages: [],
-            gridCount: { left: 5, right: 5 },
-            gridPositions: [],
-            layoutModeLeft: 0,
-            layoutModeRight: 0,
-            bgType: 'plain',
-            selectedBg: '#D81B60',
-            skipAutoLayout: false,
-          },
-        ]);
-        setHistoryIndex(typeof parsed.historyIndex === 'number' ? Math.max(0, Math.min(parsed.historyIndex, parsed.history?.length - 1 || 0)) : 0);
-        setSelectedImageIndex(parsed.selectedImageIndex !== null && typeof parsed.selectedImageIndex === 'number' ? parsed.selectedImageIndex : null);
-        setSelectedElement(typeof parsed.selectedElement === 'object' ? parsed.selectedElement : { type: null, imageIndex: null, elementIndex: null });
-        setContextMenu(typeof parsed.contextMenu === 'object' ? parsed.contextMenu : { visible: false, x: 0, y: 0, type: null, imageIndex: null, elementIndex: null });
         setSelectedPartition(typeof parsed.selectedPartition === 'string' ? parsed.selectedPartition : 'left');
         setShowPageLayout(typeof parsed.showPageLayout === 'boolean' ? parsed.showPageLayout : false);
         setSkipAutoLayout(typeof parsed.skipAutoLayout === 'boolean' ? parsed.skipAutoLayout : false);
@@ -99,7 +75,8 @@ export default function PhotoAlbum() {
         console.log('Album state loaded successfully from localStorage');
       } catch (error) {
         console.error('Error loading album state:', error);
-        resetToDefaultState();
+        // Do not reset to default, just clear the broken state
+        localStorage.removeItem('photoAlbumState');
       }
     } else {
       console.log('No saved state found in localStorage, using default state');
@@ -111,28 +88,21 @@ export default function PhotoAlbum() {
   useEffect(() => {
     if (isLoading) return;
 
+    // State to save (excluding image data)
     const stateToSave = {
-      uploadedImages,
       bgType,
       selectedBg,
       selectedSticker,
       selectedText,
       selectedPhotoLayout,
       activeLeftBar,
-      placedImages,
       gridCount,
       gridPositions,
       layoutModeLeft,
       layoutModeRight,
-      history,
-      historyIndex,
       lastStableState,
-      selectedImageIndex,
-      selectedElement,
-      contextMenu,
       selectedPartition,
       showPageLayout,
-      loadedImages,
       skipAutoLayout,
       lastSaved: new Date().toISOString(),
     };
@@ -142,47 +112,27 @@ export default function PhotoAlbum() {
       console.log('Album state saved successfully at:', stateToSave.lastSaved);
     } catch (error) {
       console.error('Error saving album state:', error);
-      // Optional: Notify user or clear localStorage if quota exceeded
       if (error.name === 'QuotaExceededError') {
         console.warn('localStorage quota exceeded. Consider reducing data or clearing storage.');
-        // localStorage.clear(); // Uncomment if you want to reset on quota error
       }
     }
   }, [
-    uploadedImages,
     bgType,
     selectedBg,
     selectedSticker,
     selectedText,
     selectedPhotoLayout,
     activeLeftBar,
-    placedImages,
     gridCount,
     gridPositions,
     layoutModeLeft,
     layoutModeRight,
-    history,
-    historyIndex,
     lastStableState,
-    selectedImageIndex,
-    selectedElement,
-    contextMenu,
     selectedPartition,
     showPageLayout,
-    loadedImages,
     isLoading,
     skipAutoLayout,
   ]);
-
-  // Helper function to validate URL
-  const isValidUrl = (string) => {
-    try {
-      new URL(string);
-      return true;
-    } catch (_) {
-      return false;
-    }
-  };
 
   const resetToDefaultState = () => {
     setUploadedImages([]);
@@ -235,7 +185,7 @@ export default function PhotoAlbum() {
   };
 
   const handleStickerSelect = (sticker) => {
-    setSelectedSticker(sticker); // Set the sticker (URL or emoji)
+    setSelectedSticker(sticker);
   };
 
   const handleTextSelect = (text) => {
@@ -255,10 +205,56 @@ export default function PhotoAlbum() {
     setUndoRedoCallbacks(callbacks);
   };
 
-  const handleSave = (state) => {
-    console.log('Manual save triggered');
-    // Force a state update to trigger the useEffect for saving to localStorage
-    setHistory([...history]); // This triggers the useEffect without changing the state meaningfully
+  const handleSave = () => {
+    const stage = stageRef.current;
+    if (!stage) {
+        console.error("Stage ref not available");
+        return;
+    }
+
+    const layer = stage.getLayers()[0];
+    if (!layer) {
+        console.error("No layer found to export.");
+        return;
+    }
+
+    const contentGroups = stage.find('.image-content');
+    const transformers = stage.find('Transformer');
+    const gridCells = stage.find('.grid-cell-rect');
+
+    // Store original properties
+    const originalFills = new Map();
+    gridCells.forEach(cell => {
+        originalFills.set(cell, cell.fill());
+        cell.fill('#f0f0f0'); // Set to grey
+    });
+
+    // Hide content
+    contentGroups.forEach(group => group.visible(false));
+    transformers.forEach(tr => tr.visible(false));
+
+    layer.batchDraw();
+
+    const dataURL = stage.toDataURL({ mimeType: 'image/png' });
+
+    // Restore original state
+    gridCells.forEach(cell => {
+        if (originalFills.has(cell)) {
+            cell.fill(originalFills.get(cell));
+        }
+    });
+    contentGroups.forEach(group => group.visible(true));
+    transformers.forEach(tr => tr.visible(true));
+
+    layer.batchDraw();
+
+    // Trigger download
+    const link = document.createElement('a');
+    link.download = 'album-layout.png';
+    link.href = dataURL;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const albumState = {
@@ -321,6 +317,7 @@ export default function PhotoAlbum() {
           onSelectLayout={handleLayoutSelect}
         />
         <RightSide
+          stageRef={stageRef}
           bgType={bgType}
           setBgType={setBgType}
           selectedBg={selectedBg}

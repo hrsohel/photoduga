@@ -56,6 +56,7 @@ function ImageEditor({ onClose, onDelete, onZoom, selectedImage }) {
 }
 
 export default function RightSide({ 
+  stageRef,
   bgType, 
   setBgType, 
   selectedBg, 
@@ -102,7 +103,6 @@ export default function RightSide({
   skipAutoLayout,
   setSkipAutoLayout,
 }) {
-  const stageRef = useRef();
   const gridRefs = useRef([]);
   const imageTransformerRef = useRef(null);
   const textTransformerRef = useRef(null);
@@ -111,6 +111,14 @@ export default function RightSide({
   const [isRestoring, setIsRestoring] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [transformersReady, setTransformersReady] = useState(false);
+
+  const stateForHistoryRef = useRef();
+  stateForHistoryRef.current = {
+    placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType,
+    selectedBg, selectedSticker, selectedText, selectedPhotoLayout, selectedImageIndex,
+    selectedElement, contextMenu, selectedPartition, showPageLayout, activeLeftBar, skipAutoLayout,
+    history, historyIndex, setHistory, setHistoryIndex
+  };
 
   // Initialize grid positions when component mounts or when gridCount changes
   useEffect(() => {
@@ -128,6 +136,13 @@ export default function RightSide({
 
   // Enhanced saveToHistory function that ensures nested state is saved
   const saveToHistory = () => {
+    const {
+        placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType,
+        selectedBg, selectedSticker, selectedText, selectedPhotoLayout, selectedImageIndex,
+        selectedElement, contextMenu, selectedPartition, showPageLayout, activeLeftBar, skipAutoLayout,
+        history, historyIndex, setHistory, setHistoryIndex
+    } = stateForHistoryRef.current;
+
     const newState = {
       placedImages: JSON.parse(JSON.stringify(placedImages)).map(img => ({
         ...img,
@@ -380,21 +395,25 @@ export default function RightSide({
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Backspace' && selectedElement.type && selectedElement.imageIndex !== null) {
-        let updatedImages = [...placedImages];
+        let newPlacedImages;
         if (selectedElement.type === 'image') {
-          updatedImages = updatedImages.filter(img => img.gridId !== selectedElement.imageIndex);
+          newPlacedImages = placedImages.filter(img => img.gridId !== selectedElement.imageIndex);
           setSelectedImageIndex(null);
         } else if (selectedElement.type === 'text' || selectedElement.type === 'sticker') {
-          const imgIndex = updatedImages.findIndex(img => img.gridId === selectedElement.imageIndex);
-          if (imgIndex !== -1) {
-            if (selectedElement.type === 'text') {
-              updatedImages[imgIndex].texts.splice(selectedElement.elementIndex, 1);
-            } else if (selectedElement.type === 'sticker') {
-              updatedImages[imgIndex].stickers.splice(selectedElement.elementIndex, 1);
+          newPlacedImages = placedImages.map(img => {
+            if (img.gridId === selectedElement.imageIndex) {
+              let newImg = { ...img };
+              if (selectedElement.type === 'text') {
+                newImg.texts = img.texts.filter((_, index) => index !== selectedElement.elementIndex);
+              } else if (selectedElement.type === 'sticker') {
+                newImg.stickers = img.stickers.filter((_, index) => index !== selectedElement.elementIndex);
+              }
+              return newImg;
             }
-          }
+            return img;
+          });
         }
-        setPlacedImages(updatedImages);
+        setPlacedImages(newPlacedImages);
         setSelectedElement({ type: null, imageIndex: null, elementIndex: null });
         saveToHistory();
       }
@@ -614,6 +633,7 @@ export default function RightSide({
     if (targetGridIndex !== -1) {
       const cell = layout.find(pos => pos.id === targetGridIndex && pos.shape === "rect");
       const existingImageIndex = placedImages.findIndex(img => img.gridId === targetGridIndex);
+      
       if (imageUrl) {
         const newImage = {
           src: imageUrl,
@@ -632,32 +652,38 @@ export default function RightSide({
           id: Date.now() + Math.random(),
         };
 
-        let updatedImages = [...placedImages];
+        let newPlacedImages;
         if (existingImageIndex !== -1) {
-          updatedImages[existingImageIndex] = newImage;
+            newPlacedImages = placedImages.map((img, index) => index === existingImageIndex ? newImage : img);
         } else {
-          updatedImages.push(newImage);
+            newPlacedImages = [...placedImages, newImage];
         }
-        setPlacedImages(updatedImages);
+        setPlacedImages(newPlacedImages);
         saveToHistory();
+
       } else if (stickerUrl && existingImageIndex !== -1) {
-        const updatedImages = [...placedImages];
-        const imgIndex = updatedImages.findIndex(img => img.gridId === targetGridIndex);
-        if (imgIndex !== -1) {
-          updatedImages[imgIndex].stickers.push({
-            sticker: stickerUrl,
-            x: pointerPosition.x - cell.x,
-            y: pointerPosition.y - cell.y,
-            width: 50,
-            height: 50,
-            scaleX: 1,
-            scaleY: 1,
-            rotation: 0,
-            draggable: true,
-          });
-          setPlacedImages(updatedImages);
-          saveToHistory();
-        }
+        const newPlacedImages = placedImages.map(img => {
+          if (img.gridId === targetGridIndex) {
+            const newSticker = {
+              sticker: stickerUrl,
+              x: pointerPosition.x - cell.x,
+              y: pointerPosition.y - cell.y,
+              width: 50,
+              height: 50,
+              scaleX: 1,
+              scaleY: 1,
+              rotation: 0,
+              draggable: true,
+            };
+            const newStickers = [...(img.stickers || []), newSticker];
+            return { ...img, stickers: newStickers };
+          }
+          return img;
+        });
+        setPlacedImages(newPlacedImages);
+        const updatedImage = newPlacedImages.find(img => img.gridId === targetGridIndex);
+        setSelectedElement({ type: 'sticker', imageIndex: targetGridIndex, elementIndex: updatedImage.stickers.length - 1 });
+        saveToHistory();
       }
     }
   };
@@ -671,25 +697,31 @@ export default function RightSide({
   };
 
   const handleElementDelete = (imageIndex, type, elementIndex) => {
-    const updatedImages = [...placedImages];
-    const imgIndex = updatedImages.findIndex(img => img.gridId === imageIndex);
-    if (imgIndex !== -1) {
-      if (type === 'text') {
-        updatedImages[imgIndex].texts.splice(elementIndex, 1);
-      } else if (type === 'sticker') {
-        updatedImages[imgIndex].stickers.splice(elementIndex, 1);
+    const newPlacedImages = placedImages.map(img => {
+      if (img.gridId === imageIndex) {
+        const newImg = { ...img };
+        if (type === 'text') {
+          newImg.texts = img.texts.filter((_, index) => index !== elementIndex);
+        } else if (type === 'sticker') {
+          newImg.stickers = img.stickers.filter((_, index) => index !== elementIndex);
+        }
+        return newImg;
       }
-      setPlacedImages(updatedImages);
-      setSelectedElement({ type: null, imageIndex: null, elementIndex: null });
-      saveToHistory();
-    }
+      return img;
+    });
+    setPlacedImages(newPlacedImages);
+    setSelectedElement({ type: null, imageIndex: null, elementIndex: null });
+    saveToHistory();
   };
 
   const handleGridDragEnd = (index, e) => {
-    const updatedPositions = [...gridPositions];
-    updatedPositions[index].x = e.target.x();
-    updatedPositions[index].y = e.target.y();
-    setGridPositions(updatedPositions);
+    const newGridPositions = gridPositions.map((pos, i) => {
+        if (i === index) {
+            return { ...pos, x: e.target.x(), y: e.target.y() };
+        }
+        return pos;
+    });
+    setGridPositions(newGridPositions);
     setSkipAutoLayout(true);
     saveToHistory();
   };
@@ -702,17 +734,21 @@ export default function RightSide({
     const scaleY = node.scaleY();
     const rotation = node.rotation();
 
-    const updatedImages = [...placedImages];
-    const imageIndex = updatedImages.findIndex(img => img.gridId === index);
-    if (imageIndex !== -1) {
-      updatedImages[imageIndex].width *= scaleX;
-      updatedImages[imageIndex].height *= scaleY;
-      updatedImages[imageIndex].scaleX = scaleX;
-      updatedImages[imageIndex].scaleY = scaleY;
-      updatedImages[imageIndex].rotation = rotation;
-      setPlacedImages(updatedImages);
-      saveToHistory();
-    }
+    const newPlacedImages = placedImages.map(img => {
+        if (img.gridId === index) {
+            return {
+                ...img,
+                width: img.width * scaleX,
+                height: img.height * scaleY,
+                scaleX: scaleX,
+                scaleY: scaleY,
+                rotation: rotation,
+            };
+        }
+        return img;
+    });
+    setPlacedImages(newPlacedImages);
+    saveToHistory();
 
     node.scaleX(1);
     node.scaleY(1);
@@ -720,17 +756,27 @@ export default function RightSide({
 
   const handleTextTransformEnd = (imageIndex, textIndex, e) => {
     const node = e.target;
-    const updatedImages = [...placedImages];
-    const imgIndex = updatedImages.findIndex(img => img.gridId === imageIndex);
-    if (imgIndex !== -1) {
-      updatedImages[imgIndex].texts[textIndex].width = node.width() * node.scaleX();
-      updatedImages[imgIndex].texts[textIndex].height = node.height() * node.scaleY();
-      updatedImages[imgIndex].texts[textIndex].scaleX = node.scaleX();
-      updatedImages[imgIndex].texts[textIndex].scaleY = node.scaleY();
-      updatedImages[imgIndex].texts[textIndex].rotation = node.rotation();
-      setPlacedImages(updatedImages);
-      saveToHistory();
-    }
+    const newPlacedImages = placedImages.map(img => {
+        if (img.gridId === imageIndex) {
+            const newTexts = img.texts.map((text, tIndex) => {
+                if (tIndex === textIndex) {
+                    return {
+                        ...text,
+                        width: node.width() * node.scaleX(),
+                        height: node.height() * node.scaleY(),
+                        scaleX: node.scaleX(),
+                        scaleY: node.scaleY(),
+                        rotation: node.rotation(),
+                    };
+                }
+                return text;
+            });
+            return { ...img, texts: newTexts };
+        }
+        return img;
+    });
+    setPlacedImages(newPlacedImages);
+    saveToHistory();
 
     node.scaleX(1);
     node.scaleY(1);
@@ -738,17 +784,27 @@ export default function RightSide({
 
   const handleStickerTransformEnd = (imageIndex, stickerIndex, e) => {
     const node = e.target;
-    const updatedImages = [...placedImages];
-    const imgIndex = updatedImages.findIndex(img => img.gridId === imageIndex);
-    if (imgIndex !== -1) {
-      updatedImages[imgIndex].stickers[stickerIndex].width = node.width() * node.scaleX();
-      updatedImages[imgIndex].stickers[stickerIndex].height = node.height() * node.scaleY();
-      updatedImages[imgIndex].stickers[stickerIndex].scaleX = node.scaleX();
-      updatedImages[imgIndex].stickers[stickerIndex].scaleY = node.scaleY();
-      updatedImages[imgIndex].stickers[stickerIndex].rotation = node.rotation();
-      setPlacedImages(updatedImages);
-      saveToHistory();
-    }
+    const newPlacedImages = placedImages.map(img => {
+        if (img.gridId === imageIndex) {
+            const newStickers = img.stickers.map((sticker, sIndex) => {
+                if (sIndex === stickerIndex) {
+                    return {
+                        ...sticker,
+                        width: node.width() * node.scaleX(),
+                        height: node.height() * node.scaleY(),
+                        scaleX: node.scaleX(),
+                        scaleY: node.scaleY(),
+                        rotation: node.rotation(),
+                    };
+                }
+                return sticker;
+            });
+            return { ...img, stickers: newStickers };
+        }
+        return img;
+    });
+    setPlacedImages(newPlacedImages);
+    saveToHistory();
 
     node.scaleX(1);
     node.scaleY(1);
@@ -756,43 +812,47 @@ export default function RightSide({
 
   const handleZoom = (factor) => {
     if (selectedImageIndex === null) return;
-
-    const updatedImages = [...placedImages];
-    const imageIndex = updatedImages.findIndex(img => img.gridId === selectedImageIndex);
-    if (imageIndex !== -1) {
-      updatedImages[imageIndex].scaleX *= factor;
-      updatedImages[imageIndex].scaleY *= factor;
-      updatedImages[imageIndex].scaleX = Math.max(0.1, Math.min(5, updatedImages[imageIndex].scaleX));
-      updatedImages[imageIndex].scaleY = Math.max(0.1, Math.min(5, updatedImages[imageIndex].scaleY));
-      setPlacedImages(updatedImages);
-      saveToHistory();
-    }
+    const newPlacedImages = placedImages.map(img => {
+        if (img.gridId === selectedImageIndex) {
+            const newScaleX = Math.max(0.1, Math.min(5, img.scaleX * factor));
+            const newScaleY = Math.max(0.1, Math.min(5, img.scaleY * factor));
+            return { ...img, scaleX: newScaleX, scaleY: newScaleY };
+        }
+        return img;
+    });
+    setPlacedImages(newPlacedImages);
+    saveToHistory();
   };
 
   const handleAddText = () => {
     if (selectedImageIndex === null) return;
 
-    const updatedImages = [...placedImages];
-    const imageIndex = updatedImages.findIndex(img => img.gridId === selectedImageIndex);
-    if (imageIndex !== -1) {
-      const newText = {
-        text: "Double click to edit",
-        x: 20,
-        y: 20,
-        fontSize: 20,
-        fill: "black",
-        width: 150,
-        height: 30,
-        scaleX: 1,
-        scaleY: 1,
-        rotation: 0,
-        draggable: true,
-      };
-      updatedImages[imageIndex].texts.push(newText);
-      setPlacedImages(updatedImages);
-      setSelectedElement({ type: 'text', imageIndex: selectedImageIndex, elementIndex: updatedImages[imageIndex].texts.length - 1 });
-      saveToHistory();
-    }
+    const newText = {
+      text: "Double click to edit",
+      x: 20,
+      y: 20,
+      fontSize: 20,
+      fill: "black",
+      width: 150,
+      height: 30,
+      scaleX: 1,
+      scaleY: 1,
+      rotation: 0,
+      draggable: true,
+    };
+
+    const newPlacedImages = placedImages.map(img => {
+      if (img.gridId === selectedImageIndex) {
+        const newTexts = [...(img.texts || []), newText];
+        return { ...img, texts: newTexts };
+      }
+      return img;
+    });
+
+    setPlacedImages(newPlacedImages);
+    const updatedImage = newPlacedImages.find(img => img.gridId === selectedImageIndex);
+    setSelectedElement({ type: 'text', imageIndex: selectedImageIndex, elementIndex: updatedImage.texts.length - 1 });
+    saveToHistory();
   };
 
   const handleTextDblClick = (imageIndex, textIndex, e) => {
@@ -819,13 +879,20 @@ export default function RightSide({
     area.focus();
     
     const handleTextSave = () => {
-      const updatedImages = [...placedImages];
-      const imgIndex = updatedImages.findIndex(img => img.gridId === imageIndex);
-      if (imgIndex !== -1) {
-        updatedImages[imgIndex].texts[textIndex].text = area.value;
-        setPlacedImages(updatedImages);
-        saveToHistory(); // Ensure immediate save after edit
-      }
+      const newPlacedImages = placedImages.map(img => {
+        if (img.gridId === imageIndex) {
+          const newTexts = img.texts.map((text, tIndex) => {
+            if (tIndex === textIndex) {
+              return { ...text, text: area.value };
+            }
+            return text;
+          });
+          return { ...img, texts: newTexts };
+        }
+        return img;
+      });
+      setPlacedImages(newPlacedImages);
+      saveToHistory();
       document.body.removeChild(area);
       area.removeEventListener('blur', handleTextSave);
     };
@@ -864,27 +931,31 @@ export default function RightSide({
 
   useEffect(() => {
     if (selectedSticker && selectedImageIndex !== null) {
-      const updatedImages = [...placedImages];
-      const imgIndex = updatedImages.findIndex(img => img.gridId === selectedImageIndex);
-      if (imgIndex !== -1) {
-        updatedImages[imgIndex].stickers.push({
-          sticker: selectedSticker,
-          x: 20,
-          y: 20,
-          width: 50,
-          height: 50,
-          scaleX: 1,
-          scaleY: 1,
-          rotation: 0,
-          draggable: true,
-        });
-        setPlacedImages(updatedImages);
-        setSelectedElement({ type: 'sticker', imageIndex: selectedImageIndex, elementIndex: updatedImages[imgIndex].stickers.length - 1 });
-        if (onStickerPlaced) onStickerPlaced();
-        saveToHistory();
-      }
+      const newPlacedImages = placedImages.map(img => {
+        if (img.gridId === selectedImageIndex) {
+          const newSticker = {
+            sticker: selectedSticker,
+            x: 20,
+            y: 20,
+            width: 50,
+            height: 50,
+            scaleX: 1,
+            scaleY: 1,
+            rotation: 0,
+            draggable: true,
+          };
+          const newStickers = [...(img.stickers || []), newSticker];
+          return { ...img, stickers: newStickers };
+        }
+        return img;
+      });
+      setPlacedImages(newPlacedImages);
+      const updatedImage = newPlacedImages.find(img => img.gridId === selectedImageIndex);
+      setSelectedElement({ type: 'sticker', imageIndex: selectedImageIndex, elementIndex: updatedImage.stickers.length - 1 });
+      if (onStickerPlaced) onStickerPlaced();
+      saveToHistory();
     }
-  }, [selectedSticker, selectedImageIndex, onStickerPlaced, placedImages, setPlacedImages, setSelectedElement]);
+  }, [selectedSticker, selectedImageIndex, onStickerPlaced, setPlacedImages, setSelectedElement]);
 
   useEffect(() => {
     const stageContainer = stageRef.current?.container();
@@ -896,7 +967,7 @@ export default function RightSide({
         stageContainer.removeEventListener('drop', handleStageDrop);
       };
     }
-  }, [gridPositions, placedImages]);
+  }, [gridPositions, placedImages, stageRef]);
 
   useEffect(() => {
     if (gridCount.left !== lastStableState.gridCount.left || gridCount.right !== lastStableState.gridCount.right) {
@@ -928,14 +999,12 @@ export default function RightSide({
                   <div className="flex mb-2">
                     <button 
                       onClick={() => { setSelectedPartition('left'); saveToHistory(); }} 
-                      className={`px-2 py-1 text-xs ${selectedPartition === 'left' ? 'bg-green-200' : 'bg-gray-100'} border rounded-l`}
-                    >
+                      className={`px-2 py-1 text-xs ${selectedPartition === 'left' ? 'bg-green-200' : 'bg-gray-100'} border rounded-l`}>
                       Left
                     </button>
                     <button 
                       onClick={() => { setSelectedPartition('right'); saveToHistory(); }} 
-                      className={`px-2 py-1 text-xs ${selectedPartition === 'right' ? 'bg-green-200' : 'bg-gray-100'} border rounded-r`}
-                    >
+                      className={`px-2 py-1 text-xs ${selectedPartition === 'right' ? 'bg-green-200' : 'bg-gray-100'} border rounded-r`}>
                       Right
                     </button>
                   </div>
@@ -959,14 +1028,12 @@ export default function RightSide({
                   </div>
                   <button 
                     onClick={handleChangeLayout} 
-                    className="px-2 py-1 text-xs bg-blue-200 border rounded mb-2"
-                  >
+                    className="px-2 py-1 text-xs bg-blue-200 border rounded mb-2">
                     Change Layout
                   </button>
                   <button 
                     onClick={cancelLayoutChange} 
-                    className="px-2 py-1 text-xs bg-red-200 border rounded"
-                  >
+                    className="px-2 py-1 text-xs bg-red-200 border rounded">
                     Cancel
                   </button>
                 </div>
@@ -1040,6 +1107,7 @@ export default function RightSide({
                   >
                     {frame.shape === "rect" && (
                       <Rect
+                        name="grid-cell-rect"
                         width={frame.width}
                         height={frame.height}
                         fill={fill}
@@ -1068,7 +1136,7 @@ export default function RightSide({
                       />
                     )}
                     {imageInThisGrid && (
-                      <>
+                      <Group name="image-content">
                         <Rect
                           width={imageInThisGrid.width}
                           height={imageInThisGrid.height}
@@ -1107,11 +1175,19 @@ export default function RightSide({
                             }}
                             onDragEnd={(e) => {
                               e.cancelBubble = true;
-                              const updatedImages = [...placedImages];
-                              const imgIndex = updatedImages.findIndex(img => img.gridId === frame.id);
-                              updatedImages[imgIndex].texts[textIndex].x = e.target.x();
-                              updatedImages[imgIndex].texts[textIndex].y = e.target.y();
-                              setPlacedImages(updatedImages);
+                              const newPlacedImages = placedImages.map((img) => {
+                                if (img.gridId === frame.id) {
+                                  const newTexts = img.texts.map((text, tIndex) => {
+                                    if (tIndex === textIndex) {
+                                      return { ...text, x: e.target.x(), y: e.target.y() };
+                                    }
+                                    return text;
+                                  });
+                                  return { ...img, texts: newTexts };
+                                }
+                                return img;
+                              });
+                              setPlacedImages(newPlacedImages);
                               saveToHistory();
                             }}
                           />
@@ -1139,16 +1215,24 @@ export default function RightSide({
                             }}
                             onDragEnd={(e) => {
                               e.cancelBubble = true;
-                              const updatedImages = [...placedImages];
-                              const imgIndex = updatedImages.findIndex(img => img.gridId === frame.id);
-                              updatedImages[imgIndex].stickers[stickerIndex].x = e.target.x();
-                              updatedImages[imgIndex].stickers[stickerIndex].y = e.target.y();
-                              setPlacedImages(updatedImages);
+                              const newPlacedImages = placedImages.map((img) => {
+                                if (img.gridId === frame.id) {
+                                  const newStickers = img.stickers.map((sticker, sIndex) => {
+                                    if (sIndex === stickerIndex) {
+                                      return { ...sticker, x: e.target.x(), y: e.target.y() };
+                                    }
+                                    return sticker;
+                                  });
+                                  return { ...img, stickers: newStickers };
+                                }
+                                return img;
+                              });
+                              setPlacedImages(newPlacedImages);
                               saveToHistory();
                             }}
                           />
                         ))}
-                      </>
+                      </Group>
                     )}
                   </Group>
                 );
