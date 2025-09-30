@@ -2,30 +2,8 @@ import React from 'react';
 
 export default function AlbunMenuBar({ onUndo, onRedo, onSave, albumState }) {
     const handleSave = () => {
-        if (onSave && albumState) {
-            // Save the album state to localStorage
-            try {
-                // Deep copy to ensure nested objects (like texts and stickers) are properly serialized
-                const stateToSave = {
-                    ...albumState,
-                    placedImages: albumState.placedImages.map(img => ({
-                        ...img,
-                        texts: Array.isArray(img.texts) ? img.texts.map(t => ({ ...t })) : [],
-                        stickers: Array.isArray(img.stickers) ? img.stickers.map(s => ({ ...s })) : [],
-                    })),
-                    gridCount: { ...albumState.gridCount },
-                    gridPositions: albumState.gridPositions.map(pos => ({ ...pos })),
-                    selectedElement: { ...albumState.selectedElement },
-                    contextMenu: { ...albumState.contextMenu },
-                    lastSaved: new Date().toISOString(),
-                };
-                
-                localStorage.setItem('photoAlbumStateAfterSave', JSON.stringify(stateToSave));
-                console.log('Album state saved successfully at:', stateToSave.lastSaved);
-                onSave(stateToSave);
-            } catch (error) {
-                console.error('Error saving album state:', error);
-            }
+        if (onSave) {
+            onSave();
         }
     };
 

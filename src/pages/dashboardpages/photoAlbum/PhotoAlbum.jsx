@@ -3,7 +3,8 @@ import LeftSide from '@/components/dashboardcomponents/photoAlbum/LeftSide';
 import MiddleSide from '@/components/dashboardcomponents/photoAlbum/MiddleSide';
 import PageNavigation from '@/components/dashboardcomponents/photoAlbum/PageNavigation';
 import RightSide from '@/components/dashboardcomponents/photoAlbum/RightSide';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { get, set, clear } from '@/lib/db';
 
 export default function PhotoAlbum() {
   const stageRef = useRef(null);
@@ -48,43 +49,76 @@ export default function PhotoAlbum() {
   const [loadedImages, setLoadedImages] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [skipAutoLayout, setSkipAutoLayout] = useState(false);
+  const [canvasStickers, setCanvasStickers] = useState([]);
 
-  // Load state from localStorage on mount
+  // Load state from IndexedDB on mount
   useEffect(() => {
-    const savedState = localStorage.getItem('photoAlbumState');
-    if (savedState) {
+    async function loadState() {
       try {
-        const parsed = JSON.parse(savedState);
+        const savedState = await get('photoAlbumState');
+        if (savedState) {
+          try {
+            // Load only serializable, non-image data
+            setGridPositions(Array.isArray(savedState.gridPositions) ? savedState.gridPositions : []);
+            setGridCount(typeof savedState.gridCount === 'object' ? savedState.gridCount : { left: 5, right: 5 });
+            setLastStableState(typeof savedState.lastStableState === 'object' ? savedState.lastStableState : { gridCount: { left: 5, right: 5 }, layoutModeLeft: 0, layoutModeRight: 0 });
+            setBgType(typeof savedState.bgType === 'string' ? savedState.bgType : 'plain');
+            setSelectedBg(typeof savedState.selectedBg === 'string' ? savedState.selectedBg : '#D81B60');
+            setSelectedSticker(typeof savedState.selectedSticker === 'string' ? savedState.selectedSticker : null);
+            setSelectedText(savedState.selectedText || null);
+            setSelectedPhotoLayout(savedState.selectedPhotoLayout || null);
+            setActiveLeftBar(typeof savedState.activeLeftBar === 'string' ? savedState.activeLeftBar : "Frames");
+            setLayoutModeLeft(typeof savedState.layoutModeLeft === 'number' ? savedState.layoutModeLeft : 0);
+            setLayoutModeRight(typeof savedState.layoutModeRight === 'number' ? savedState.layoutModeRight : 0);
+            setSelectedPartition(typeof savedState.selectedPartition === 'string' ? savedState.selectedPartition : 'left');
+            setShowPageLayout(typeof savedState.showPageLayout === 'boolean' ? savedState.showPageLayout : false);
+            setSkipAutoLayout(typeof savedState.skipAutoLayout === 'boolean' ? savedState.skipAutoLayout : false);
+            setPlacedImages(
+            (Array.isArray(savedState.placedImages) ? savedState.placedImages : []).map(img => ({
+              ...img,
+              texts: Array.isArray(img.texts) ? img.texts : [],
+              stickers: Array.isArray(img.stickers) ? img.stickers : [],
+            }))
+          );
+            setHistory(Array.isArray(savedState.history) && savedState.history.length > 0 ? savedState.history : [
+              {
+                placedImages: [],
+                gridCount: { left: 5, right: 5 },
+                gridPositions: [],
+                layoutModeLeft: 0,
+                layoutModeRight: 0,
+                bgType: 'plain',
+                selectedBg: '#D81B60',
+                skipAutoLayout: false,
+              },
+            ]);
+            setHistoryIndex(typeof savedState.historyIndex === 'number' ? savedState.historyIndex : 0);
 
-        // Load only serializable, non-image data
-        setGridPositions(Array.isArray(parsed.gridPositions) ? parsed.gridPositions : []);
-        setGridCount(typeof parsed.gridCount === 'object' ? parsed.gridCount : { left: 5, right: 5 });
-        setLastStableState(typeof parsed.lastStableState === 'object' ? parsed.lastStableState : { gridCount: { left: 5, right: 5 }, layoutModeLeft: 0, layoutModeRight: 0 });
-        setBgType(typeof parsed.bgType === 'string' ? parsed.bgType : 'plain');
-        setSelectedBg(typeof parsed.selectedBg === 'string' ? parsed.selectedBg : '#D81B60');
-        setSelectedSticker(typeof parsed.selectedSticker === 'string' ? parsed.selectedSticker : null);
-        setSelectedText(parsed.selectedText || null);
-        setSelectedPhotoLayout(parsed.selectedPhotoLayout || null);
-        setActiveLeftBar(typeof parsed.activeLeftBar === 'string' ? parsed.activeLeftBar : "Frames");
-        setLayoutModeLeft(typeof parsed.layoutModeLeft === 'number' ? parsed.layoutModeLeft : 0);
-        setLayoutModeRight(typeof parsed.layoutModeRight === 'number' ? parsed.layoutModeRight : 0);
-        setSelectedPartition(typeof parsed.selectedPartition === 'string' ? parsed.selectedPartition : 'left');
-        setShowPageLayout(typeof parsed.showPageLayout === 'boolean' ? parsed.showPageLayout : false);
-        setSkipAutoLayout(typeof parsed.skipAutoLayout === 'boolean' ? parsed.skipAutoLayout : false);
 
-        console.log('Album state loaded successfully from localStorage');
+            console.log('Album state loaded successfully from IndexedDB');
+          } catch (error) {
+            console.error('Error processing loaded album state, resetting to default:', error);
+            resetToDefaultState();
+          }
+        } else {
+          console.log('No saved state found in IndexedDB, using default state');
+        }
       } catch (error) {
-        console.error('Error loading album state:', error);
-        // Do not reset to default, just clear the broken state
-        localStorage.removeItem('photoAlbumState');
+        console.error('Error loading album state from IndexedDB, clearing stored data and resetting to default:', error);
+        try {
+          await clear();
+        } catch (clearError) {
+          console.error('Failed to clear IndexedDB:', clearError);
+        }
+        resetToDefaultState();
+      } finally {
+        setIsLoading(false);
       }
-    } else {
-      console.log('No saved state found in localStorage, using default state');
     }
-    setIsLoading(false);
+    loadState();
   }, []);
 
-  // Save state to localStorage whenever relevant states change
+  // Save state to IndexedDB whenever relevant states change
   useEffect(() => {
     if (isLoading) return;
 
@@ -104,18 +138,22 @@ export default function PhotoAlbum() {
       selectedPartition,
       showPageLayout,
       skipAutoLayout,
+      placedImages,
+      history,
+      historyIndex,
       lastSaved: new Date().toISOString(),
     };
 
-    try {
-      localStorage.setItem('photoAlbumState', JSON.stringify(stateToSave));
-      console.log('Album state saved successfully at:', stateToSave.lastSaved);
-    } catch (error) {
-      console.error('Error saving album state:', error);
-      if (error.name === 'QuotaExceededError') {
-        console.warn('localStorage quota exceeded. Consider reducing data or clearing storage.');
+    async function saveState() {
+      try {
+        const sanitizedState = JSON.parse(JSON.stringify(stateToSave));
+        await set('photoAlbumState', sanitizedState);
+        console.log('Album state saved successfully at:', sanitizedState.lastSaved);
+      } catch (error) {
+        console.error('Error saving album state:', error);
       }
     }
+    saveState();
   }, [
     bgType,
     selectedBg,
@@ -132,6 +170,9 @@ export default function PhotoAlbum() {
     showPageLayout,
     isLoading,
     skipAutoLayout,
+    placedImages,
+    history,
+    historyIndex,
   ]);
 
   const resetToDefaultState = () => {
@@ -196,14 +237,22 @@ export default function PhotoAlbum() {
     setSelectedPhotoLayout(layout);
   };
 
+  const onStickerPlaced = useCallback(() => {
+    setSelectedSticker(null);
+  }, []);
+
+  const onLayoutApplied = useCallback(() => {
+    setSelectedPhotoLayout(null);
+  }, []);
+
   const [undoRedoCallbacks, setUndoRedoCallbacks] = useState({
     onUndo: () => { },
     onRedo: () => { },
   });
 
-  const registerUndoRedoCallbacks = (callbacks) => {
+  const registerUndoRedoCallbacks = useCallback((callbacks) => {
     setUndoRedoCallbacks(callbacks);
-  };
+  }, []);
 
   const handleSave = () => {
     const stage = stageRef.current;
@@ -212,45 +261,18 @@ export default function PhotoAlbum() {
         return;
     }
 
-    const layer = stage.getLayers()[0];
-    if (!layer) {
-        console.error("No layer found to export.");
-        return;
-    }
-
-    const contentGroups = stage.find('.image-content');
     const transformers = stage.find('Transformer');
-    const gridCells = stage.find('.grid-cell-rect');
+    transformers.forEach(tr => tr.hide());
+    stage.draw();
 
-    // Store original properties
-    const originalFills = new Map();
-    gridCells.forEach(cell => {
-        originalFills.set(cell, cell.fill());
-        cell.fill('#f0f0f0'); // Set to grey
-    });
+    const dataURL = stage.toDataURL({ mimeType: 'image/png', pixelRatio: 2 });
 
-    // Hide content
-    contentGroups.forEach(group => group.visible(false));
-    transformers.forEach(tr => tr.visible(false));
-
-    layer.batchDraw();
-
-    const dataURL = stage.toDataURL({ mimeType: 'image/png' });
-
-    // Restore original state
-    gridCells.forEach(cell => {
-        if (originalFills.has(cell)) {
-            cell.fill(originalFills.get(cell));
-        }
-    });
-    contentGroups.forEach(group => group.visible(true));
-    transformers.forEach(tr => tr.visible(true));
-
-    layer.batchDraw();
+    transformers.forEach(tr => tr.show());
+    stage.draw();
 
     // Trigger download
     const link = document.createElement('a');
-    link.download = 'album-layout.png';
+    link.download = 'photo-album.png';
     link.href = dataURL;
     document.body.appendChild(link);
     link.click();
@@ -280,6 +302,7 @@ export default function PhotoAlbum() {
     showPageLayout,
     loadedImages,
     skipAutoLayout,
+    canvasStickers,
   };
 
   if (isLoading) {
@@ -324,12 +347,12 @@ export default function PhotoAlbum() {
           setSelectedBg={setSelectedBg}
           selectedSticker={selectedSticker}
           setSelectedSticker={setSelectedSticker}
-          onStickerPlaced={() => setSelectedSticker(null)}
+          onStickerPlaced={onStickerPlaced}
           selectedText={selectedText}
           setSelectedText={setSelectedText}
           selectedPhotoLayout={selectedPhotoLayout}
           setSelectedPhotoLayout={setSelectedPhotoLayout}
-          onLayoutApplied={() => setSelectedPhotoLayout(null)}
+          onLayoutApplied={onLayoutApplied}
           registerUndoRedoCallbacks={registerUndoRedoCallbacks}
           placedImages={placedImages}
           setPlacedImages={setPlacedImages}
@@ -363,9 +386,11 @@ export default function PhotoAlbum() {
           setActiveLeftBar={setActiveLeftBar}
           skipAutoLayout={skipAutoLayout}
           setSkipAutoLayout={setSkipAutoLayout}
+          canvasStickers={canvasStickers}
+          setCanvasStickers={setCanvasStickers}
         />
       </div>
-      {/* <PageNavigation /> */}
+      <PageNavigation />
     </section>
   );
 }

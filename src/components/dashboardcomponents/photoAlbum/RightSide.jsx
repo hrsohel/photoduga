@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import { Stage, Layer, Image as KonvaImage, Text, Group, Transformer, Rect } from "react-konva";
 import useImage from "use-image";
 import Konva from "konva";
+import AvailablePages from "./AvailablePages";
 
 const loadImage = async (src) => {
   if (!src) return new Image();
@@ -102,11 +103,14 @@ export default function RightSide({
   setActiveLeftBar,
   skipAutoLayout,
   setSkipAutoLayout,
+  canvasStickers,
+  setCanvasStickers,
 }) {
   const gridRefs = useRef([]);
   const imageTransformerRef = useRef(null);
   const textTransformerRef = useRef(null);
   const stickerTransformerRef = useRef(null);
+  const canvasStickerTransformerRef = useRef(null); // New transformer ref
   const previousGridPositionsRef = useRef([]);
   const [isRestoring, setIsRestoring] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -117,7 +121,8 @@ export default function RightSide({
     placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType,
     selectedBg, selectedSticker, selectedText, selectedPhotoLayout, selectedImageIndex,
     selectedElement, contextMenu, selectedPartition, showPageLayout, activeLeftBar, skipAutoLayout,
-    history, historyIndex, setHistory, setHistoryIndex
+    history, historyIndex, setHistory, setHistoryIndex,
+    canvasStickers, // Add to history ref
   };
 
   // Initialize grid positions when component mounts or when gridCount changes
@@ -140,7 +145,8 @@ export default function RightSide({
         placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType,
         selectedBg, selectedSticker, selectedText, selectedPhotoLayout, selectedImageIndex,
         selectedElement, contextMenu, selectedPartition, showPageLayout, activeLeftBar, skipAutoLayout,
-        history, historyIndex, setHistory, setHistoryIndex
+        history, historyIndex, setHistory, setHistoryIndex,
+        canvasStickers
     } = stateForHistoryRef.current;
 
     const newState = {
@@ -165,35 +171,13 @@ export default function RightSide({
       showPageLayout,
       activeLeftBar,
       skipAutoLayout,
+      canvasStickers: JSON.parse(JSON.stringify(canvasStickers)),
     };
     
-    const currentState = history[historyIndex];
-    
-    const hasChanges = !(
-      JSON.stringify(newState.placedImages) === JSON.stringify(currentState.placedImages) &&
-      JSON.stringify(newState.gridCount) === JSON.stringify(currentState.gridCount) &&
-      JSON.stringify(newState.gridPositions) === JSON.stringify(currentState.gridPositions) &&
-      newState.layoutModeLeft === currentState.layoutModeLeft &&
-      newState.layoutModeRight === currentState.layoutModeRight &&
-      newState.bgType === currentState.bgType &&
-      newState.selectedBg === currentState.selectedBg &&
-      newState.selectedSticker === currentState.selectedSticker &&
-      newState.selectedText === currentState.selectedText &&
-      newState.selectedPhotoLayout === currentState.selectedPhotoLayout &&
-      newState.selectedImageIndex === currentState.selectedImageIndex &&
-      JSON.stringify(newState.selectedElement) === JSON.stringify(currentState.selectedElement) &&
-      newState.selectedPartition === currentState.selectedPartition &&
-      newState.activeLeftBar === currentState.activeLeftBar &&
-      newState.skipAutoLayout === currentState.skipAutoLayout
-    );
-    
-    if (hasChanges) {
-      const newHistory = history.slice(0, historyIndex + 1);
-      newHistory.push(newState);
-      setHistory(newHistory);
-      setHistoryIndex(newHistory.length - 1);
-      console.log('History saved with changes');
-    }
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(newState);
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
   };
 
   const undo = () => {
@@ -202,11 +186,11 @@ export default function RightSide({
       const prevIndex = historyIndex - 1;
       const prevState = history[prevIndex];
       
-      setPlacedImages(prevState.placedImages.map(img => ({
+      setPlacedImages((prevState.placedImages || []).map(img => ({
         ...img,
         texts: img.texts || [],
         stickers: img.stickers || [],
-      })) || []);
+      })));
       setGridCount(prevState.gridCount || { left: 5, right: 5 });
       setGridPositions(prevState.gridPositions || []);
       setLayoutModeLeft(prevState.layoutModeLeft || 0);
@@ -221,6 +205,7 @@ export default function RightSide({
       setSelectedPartition(prevState.selectedPartition || 'left');
       setActiveLeftBar(prevState.activeLeftBar || "Frames");
       setSkipAutoLayout(prevState.skipAutoLayout || false);
+      setCanvasStickers(prevState.canvasStickers || []);
       
       setHistoryIndex(prevIndex);
       console.log('Undo performed');
@@ -233,11 +218,11 @@ export default function RightSide({
       const nextIndex = historyIndex + 1;
       const nextState = history[nextIndex];
       
-      setPlacedImages(nextState.placedImages.map(img => ({
+      setPlacedImages((nextState.placedImages || []).map(img => ({
         ...img,
         texts: img.texts || [],
         stickers: img.stickers || [],
-      })) || []);
+      })));
       setGridCount(nextState.gridCount || { left: 5, right: 5 });
       setGridPositions(nextState.gridPositions || []);
       setLayoutModeLeft(nextState.layoutModeLeft || 0);
@@ -252,6 +237,7 @@ export default function RightSide({
       setSelectedPartition(nextState.selectedPartition || 'left');
       setActiveLeftBar(nextState.activeLeftBar || "Frames");
       setSkipAutoLayout(nextState.skipAutoLayout || false);
+      setCanvasStickers(nextState.canvasStickers || []);
       
       setHistoryIndex(nextIndex);
       console.log('Redo performed');
@@ -323,6 +309,8 @@ export default function RightSide({
   }, [gridCount, layoutModeLeft, layoutModeRight, isRestoring, skipAutoLayout, setGridPositions]);
 
   useEffect(() => {
+    if (isRestoring) return;
+
     if (previousGridPositionsRef.current.length > 0) {
       gridRefs.current.forEach((ref, i) => {
         const node = ref.current;
@@ -356,8 +344,33 @@ export default function RightSide({
         }
         return img;
       });
-    setPlacedImages(updatedImages);
-  }, [gridPositions, setPlacedImages]);
+
+    if (JSON.stringify(updatedImages) !== JSON.stringify(placedImages)) {
+      setPlacedImages(updatedImages);
+    }
+  }, [gridPositions, placedImages, setPlacedImages, isRestoring]);
+
+  const handleCanvasStickerTransformEnd = (stickerIndex, e) => {
+    const node = e.target;
+    const newCanvasStickers = canvasStickers.map((sticker, sIndex) => {
+        if (sIndex === stickerIndex) {
+            return {
+                ...sticker,
+                width: node.width() * node.scaleX(),
+                height: node.height() * node.scaleY(),
+                scaleX: node.scaleX(),
+                scaleY: node.scaleY(),
+                rotation: node.rotation(),
+            };
+        }
+        return sticker;
+    });
+    setCanvasStickers(newCanvasStickers);
+    saveToHistory();
+
+    node.scaleX(1);
+    node.scaleY(1);
+  };
 
   useEffect(() => {
     if (!transformersReady) return;
@@ -368,6 +381,7 @@ export default function RightSide({
         imageTransformerRef.current.nodes([selectedNode]);
         if (textTransformerRef.current) textTransformerRef.current.nodes([]);
         if (stickerTransformerRef.current) stickerTransformerRef.current.nodes([]);
+        if (canvasStickerTransformerRef.current) canvasStickerTransformerRef.current.nodes([]);
       }
     } else if (selectedElement.type === 'text' && selectedElement.imageIndex !== null && selectedElement.elementIndex !== null) {
       const textNode = gridRefs.current[selectedElement.imageIndex]?.current?.findOne(`.text-${selectedElement.elementIndex}`);
@@ -376,6 +390,7 @@ export default function RightSide({
         textTransformerRef.current.getLayer()?.batchDraw();
         if (imageTransformerRef.current) imageTransformerRef.current.nodes([]);
         if (stickerTransformerRef.current) stickerTransformerRef.current.nodes([]);
+        if (canvasStickerTransformerRef.current) canvasStickerTransformerRef.current.nodes([]);
       }
     } else if (selectedElement.type === 'sticker' && selectedElement.imageIndex !== null && selectedElement.elementIndex !== null) {
       const stickerNode = gridRefs.current[selectedElement.imageIndex]?.current?.findOne(`.sticker-${selectedElement.elementIndex}`);
@@ -384,13 +399,24 @@ export default function RightSide({
         stickerTransformerRef.current.getLayer()?.batchDraw();
         if (imageTransformerRef.current) imageTransformerRef.current.nodes([]);
         if (textTransformerRef.current) textTransformerRef.current.nodes([]);
+        if (canvasStickerTransformerRef.current) canvasStickerTransformerRef.current.nodes([]);
+      }
+    } else if (selectedElement.type === 'canvas-sticker' && selectedElement.elementIndex !== null) {
+      const stickerNode = stageRef.current.findOne(`.canvas-sticker-${selectedElement.elementIndex}`);
+      if (stickerNode && canvasStickerTransformerRef.current) {
+        canvasStickerTransformerRef.current.nodes([stickerNode]);
+        canvasStickerTransformerRef.current.getLayer()?.batchDraw();
+        if (imageTransformerRef.current) imageTransformerRef.current.nodes([]);
+        if (textTransformerRef.current) textTransformerRef.current.nodes([]);
+        if (stickerTransformerRef.current) stickerTransformerRef.current.nodes([]);
       }
     } else {
       if (imageTransformerRef.current) imageTransformerRef.current.nodes([]);
       if (textTransformerRef.current) textTransformerRef.current.nodes([]);
       if (stickerTransformerRef.current) stickerTransformerRef.current.nodes([]);
+      if (canvasStickerTransformerRef.current) canvasStickerTransformerRef.current.nodes([]);
     }
-  }, [selectedElement, transformersReady]);
+  }, [selectedElement, transformersReady, stageRef]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -930,32 +956,49 @@ export default function RightSide({
   };
 
   useEffect(() => {
-    if (selectedSticker && selectedImageIndex !== null) {
-      const newPlacedImages = placedImages.map(img => {
-        if (img.gridId === selectedImageIndex) {
-          const newSticker = {
-            sticker: selectedSticker,
-            x: 20,
-            y: 20,
-            width: 50,
-            height: 50,
-            scaleX: 1,
-            scaleY: 1,
-            rotation: 0,
-            draggable: true,
-          };
-          const newStickers = [...(img.stickers || []), newSticker];
-          return { ...img, stickers: newStickers };
-        }
-        return img;
-      });
-      setPlacedImages(newPlacedImages);
-      const updatedImage = newPlacedImages.find(img => img.gridId === selectedImageIndex);
-      setSelectedElement({ type: 'sticker', imageIndex: selectedImageIndex, elementIndex: updatedImage.stickers.length - 1 });
+    if (selectedSticker) {
+      if (selectedImageIndex !== null) {
+        const newPlacedImages = placedImages.map(img => {
+          if (img.gridId === selectedImageIndex) {
+            const newSticker = {
+              sticker: selectedSticker,
+              x: 20,
+              y: 20,
+              width: 50,
+              height: 50,
+              scaleX: 1,
+              scaleY: 1,
+              rotation: 0,
+              draggable: true,
+            };
+            const newStickers = [...(img.stickers || []), newSticker];
+            return { ...img, stickers: newStickers };
+          }
+          return img;
+        });
+        setPlacedImages(newPlacedImages);
+        const updatedImage = newPlacedImages.find(img => img.gridId === selectedImageIndex);
+        setSelectedElement({ type: 'sticker', imageIndex: selectedImageIndex, elementIndex: updatedImage.stickers.length - 1 });
+      } else {
+        const newSticker = {
+          sticker: selectedSticker,
+          x: 100,
+          y: 100,
+          width: 50,
+          height: 50,
+          scaleX: 1,
+          scaleY: 1,
+          rotation: 0,
+          draggable: true,
+          id: Date.now() + Math.random(),
+        };
+        setCanvasStickers([...canvasStickers, newSticker]);
+        setSelectedElement({ type: 'canvas-sticker', imageIndex: null, elementIndex: canvasStickers.length });
+      }
       if (onStickerPlaced) onStickerPlaced();
       saveToHistory();
     }
-  }, [selectedSticker, selectedImageIndex, onStickerPlaced, setPlacedImages, setSelectedElement]);
+  }, [selectedSticker, selectedImageIndex, onStickerPlaced, setPlacedImages, setSelectedElement, canvasStickers, setCanvasStickers]);
 
   useEffect(() => {
     const stageContainer = stageRef.current?.container();
@@ -967,7 +1010,7 @@ export default function RightSide({
         stageContainer.removeEventListener('drop', handleStageDrop);
       };
     }
-  }, [gridPositions, placedImages, stageRef]);
+  }, [gridPositions, placedImages, stageRef, canvasStickers]);
 
   useEffect(() => {
     if (gridCount.left !== lastStableState.gridCount.left || gridCount.right !== lastStableState.gridCount.right) {
@@ -977,6 +1020,7 @@ export default function RightSide({
   }, [gridCount, lastStableState, setLastStableState]);
 
   return (
+    <>
     <div className="flex w-full h-[90vh] justify-start items-start bg-gray-200">
       <div className="flex w-[1280px] h-[100%] gap-4 items-start">
         <div className="w-[100px] h-full p-4 border-r space-y-4 bg-gray-100 border-2">
@@ -1046,11 +1090,14 @@ export default function RightSide({
             ref={stageRef}
             width={1280}
             height={650}
-            onClick={() => {
-              setSelectedImageIndex(null);
-              setSelectedElement({ type: null, imageIndex: null, elementIndex: null });
-              setContextMenu({ visible: false, x: 0, y: 0, type: null, imageIndex: null });
-              setShowPageLayout(false);
+            onClick={(e) => {
+              // if click is on empty area of the stage
+              if (e.target === e.target.getStage()) {
+                setSelectedImageIndex(null);
+                setSelectedElement({ type: null, imageIndex: null, elementIndex: null });
+                setContextMenu({ visible: false, x: 0, y: 0, type: null, imageIndex: null });
+                setShowPageLayout(false);
+              }
             }}
             onContextMenu={(e) => {
               e.evt.preventDefault();
@@ -1251,9 +1298,52 @@ export default function RightSide({
                 keepRatio={false}
                 enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right', 'top-center', 'bottom-center']}
               />
+              {
+                canvasStickers.map((sticker, index) => (
+                  <Text
+                    key={`canvas-sticker-${index}`}
+                    name={`canvas-sticker-${index}`}
+                    x={sticker.x}
+                    y={sticker.y}
+                    text={sticker.sticker}
+                    fontSize={50}
+                    fill="black"
+                    width={sticker.width}
+                    height={sticker.height}
+                    scaleX={sticker.scaleX}
+                    scaleY={sticker.scaleY}
+                    rotation={sticker.rotation}
+                    draggable={sticker.draggable}
+                    onClick={(e) => handleElementClick('canvas-sticker', null, index, e)}
+                    onTransformEnd={(e) => handleCanvasStickerTransformEnd(index, e)}
+                    onContextMenu={(e) => handleContextMenu('canvas-sticker', null, index, e)}
+                    onDragStart={(e) => {
+                      e.cancelBubble = true;
+                    }}
+                    onDragEnd={(e) => {
+                      e.cancelBubble = true;
+                      const newCanvasStickers = canvasStickers.map((s, i) => {
+                        if (i === index) {
+                          return { ...s, x: e.target.x(), y: e.target.y() };
+                        }
+                        return s;
+                      });
+                      setCanvasStickers(newCanvasStickers);
+                      saveToHistory();
+                    }}
+                  />
+                ))
+              }
               <Transformer
                 ref={(node) => {
                   stickerTransformerRef.current = node;
+                }}
+                keepRatio={false}
+                enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right', 'top-center', 'bottom-center']}
+              />
+              <Transformer
+                ref={(node) => {
+                  canvasStickerTransformerRef.current = node;
                 }}
                 keepRatio={false}
                 enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right', 'top-center', 'bottom-center']}
@@ -1304,5 +1394,6 @@ export default function RightSide({
         </div>
       </div>
     </div>
+    </>
   );
 }
