@@ -270,7 +270,7 @@ export default function PhotoAlbum() {
           onRedo={undoRedoCallbacks.onRedo}
           onSave={handleSave}
         />
-        <div className='flex items-start justify-center'>
+        <div className='flex items-start justify-center relative'>
           <LeftSide activeLeftBar={activeLeftBar} setActiveLeftBar={setActiveLeftBar} />
           <MiddleSide
             uploadedImages={uploadedImages}
@@ -337,19 +337,21 @@ export default function PhotoAlbum() {
             setCanvasTexts={setCanvasTexts}
             onAddCanvasText={handleAddCanvasText}
           />
+          <div className="fixed bottom-0 w-full">
+            <PageNavigation 
+              currentPage={currentPageIndex}
+              totalPages={pages.length}
+              pages={pages.map((page, index) => index === currentPageIndex ? {
+                placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg,
+                history, historyIndex, lastStableState, skipAutoLayout, canvasStickers, canvasTexts
+              } : page)}
+              onPageChange={handlePageChange}
+              onAddPage={handleAddBlankPage}
+              onDuplicatePage={handleDuplicatePage}
+              onRemovePage={handleRemovePage}
+            />
+          </div>
         </div>
-        <PageNavigation
-          currentPage={currentPageIndex}
-          totalPages={pages.length}
-          pages={pages.map((page, index) => index === currentPageIndex ? {
-            placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg,
-            history, historyIndex, lastStableState, skipAutoLayout, canvasStickers, canvasTexts
-          } : page)}
-          onPageChange={handlePageChange}
-          onAddPage={handleAddBlankPage}
-          onDuplicatePage={handleDuplicatePage}
-          onRemovePage={handleRemovePage}
-        />
       </section>
     </>
   );
