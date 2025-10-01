@@ -1,8 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PageThumbnail from './PageThumbnail';
+
 
 const PageNavigation = ({ currentPage, totalPages, pages, onPageChange, onAddPage, onDuplicatePage, onRemovePage }) => {
   const [zoomLevel, setZoomLevel] = useState('100%');
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    let interval;
+    if (isPlaying) {
+      interval = setInterval(() => {
+        if (currentPage < totalPages - 1) {
+          onPageChange(currentPage + 1);
+        } else {
+          onPageChange(0); // Loop back to the first page
+        }
+      }, 3000); // Change page every 3 seconds
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, currentPage, totalPages, onPageChange]);
+
+  const togglePlay = () => {
+    setIsPlaying(!isPlaying);
+  };
 
   const handlePreviousPage = () => {
     if (currentPage > 0) {
@@ -23,15 +43,21 @@ const PageNavigation = ({ currentPage, totalPages, pages, onPageChange, onAddPag
   console.log(pages)
   return (
     <div className="w-full bg-white border-t border-gray-200 p-4">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-gray-700">One side</h3>
-        <div className="flex items-center space-x-2">
-          <span className="text-xs text-gray-500">All Pages</span>
-        </div>
-      </div>
-
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
+          <h3 className="text-sm font-semibold text-gray-700">One side</h3>
+          <button onClick={togglePlay} className="focus:outline-none">
+            {isPlaying ? (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="6" y="6" width="4" height="12" fill="#A8C3A0"/>
+                <rect x="14" y="6" width="4" height="12" fill="#A8C3A0"/>
+              </svg>
+            ) : (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 5V19L19 12L8 5Z" fill="#A8C3A0"/>
+              </svg>
+            )}
+          </button>
           <button 
             onClick={handlePreviousPage}
             disabled={currentPage <= 0}
@@ -47,6 +73,7 @@ const PageNavigation = ({ currentPage, totalPages, pages, onPageChange, onAddPag
           >
             Next page
           </button>
+
         </div>
 
         <div className="flex items-center space-x-3">

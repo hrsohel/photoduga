@@ -19,6 +19,7 @@ const createBlankPage = () => ({
   lastStableState: { gridCount: { left: 5, right: 5 }, layoutModeLeft: 0, layoutModeRight: 0 },
   skipAutoLayout: false,
   canvasStickers: [],
+  canvasTexts: [],
 });
 
 export default function PhotoAlbum() {
@@ -51,6 +52,7 @@ export default function PhotoAlbum() {
   const [isLoading, setIsLoading] = useState(true);
   const [skipAutoLayout, setSkipAutoLayout] = useState(pages[currentPageIndex].skipAutoLayout);
   const [canvasStickers, setCanvasStickers] = useState(pages[currentPageIndex].canvasStickers);
+  const [canvasTexts, setCanvasTexts] = useState(pages[currentPageIndex].canvasTexts);
 
   const onStickerPlaced = useCallback(() => {
     setSelectedSticker(null);
@@ -60,7 +62,7 @@ export default function PhotoAlbum() {
     setSelectedPhotoLayout(null);
   }, []);
 
-  const [undoRedoCallbacks, setUndoRedoCallbacks] = useState({ onUndo: () => {}, onRedo: () => {} });
+  const [undoRedoCallbacks, setUndoRedoCallbacks] = useState({ onUndo: () => { }, onRedo: () => { } });
 
   const registerUndoRedoCallbacks = useCallback((callbacks) => {
     setUndoRedoCallbacks(callbacks);
@@ -100,7 +102,7 @@ export default function PhotoAlbum() {
       try {
         const currentEditorState = {
           placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg,
-          history, historyIndex, lastStableState, skipAutoLayout, canvasStickers
+          history, historyIndex, lastStableState, skipAutoLayout, canvasStickers, canvasTexts
         };
         const updatedPages = pages.map((page, index) => index === currentPageIndex ? currentEditorState : page);
         const stateToSave = { pages: updatedPages, currentPageIndex };
@@ -112,7 +114,7 @@ export default function PhotoAlbum() {
     };
 
     savePages();
-  }, [pages, currentPageIndex, placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg, history, historyIndex, lastStableState, skipAutoLayout, canvasStickers, isLoading]);
+  }, [pages, currentPageIndex, placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg, history, historyIndex, lastStableState, skipAutoLayout, canvasStickers, canvasTexts, isLoading]);
 
   const loadPageData = (pageData) => {
     setPlacedImages(pageData.placedImages || []);
@@ -127,6 +129,7 @@ export default function PhotoAlbum() {
     setLastStableState(pageData.lastStableState || { gridCount: { left: 5, right: 5 }, layoutModeLeft: 0, layoutModeRight: 0 });
     setSkipAutoLayout(pageData.skipAutoLayout || false);
     setCanvasStickers(pageData.canvasStickers || []);
+    setCanvasTexts(pageData.canvasTexts || []);
   };
 
   const handlePageChange = (newIndex) => {
@@ -134,7 +137,7 @@ export default function PhotoAlbum() {
 
     const currentEditorState = {
       placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg,
-      history, historyIndex, lastStableState, skipAutoLayout, canvasStickers
+      history, historyIndex, lastStableState, skipAutoLayout, canvasStickers, canvasTexts
     };
 
     const updatedPages = pages.map((page, index) => index === currentPageIndex ? currentEditorState : page);
@@ -147,7 +150,7 @@ export default function PhotoAlbum() {
   const handleAddBlankPage = () => {
     const currentEditorState = {
       placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg,
-      history, historyIndex, lastStableState, skipAutoLayout, canvasStickers
+      history, historyIndex, lastStableState, skipAutoLayout, canvasStickers, canvasTexts
     };
     const savedPages = pages.map((page, index) => index === currentPageIndex ? currentEditorState : page);
     const newPage = createBlankPage();
@@ -162,7 +165,7 @@ export default function PhotoAlbum() {
   const handleDuplicatePage = () => {
     const currentEditorState = {
       placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg,
-      history, historyIndex, lastStableState, skipAutoLayout, canvasStickers
+      history, historyIndex, lastStableState, skipAutoLayout, canvasStickers, canvasTexts
     };
     const savedPages = pages.map((page, index) => index === currentPageIndex ? currentEditorState : page);
 
@@ -201,8 +204,26 @@ export default function PhotoAlbum() {
   };
 
   const handleStickerSelect = (sticker) => setSelectedSticker(sticker);
-  const handleTextSelect = (text) => setSelectedText(text);
   const handleLayoutSelect = (layout) => setSelectedPhotoLayout(layout);
+
+  const handleAddCanvasText = () => {
+    const newText = {
+      text: "Double click to edit",
+      x: 100,
+      y: 100,
+      fontSize: 20,
+      fill: "black",
+      width: 150,
+      height: 30,
+      scaleX: 1,
+      scaleY: 1,
+      rotation: 0,
+      draggable: true,
+      id: Date.now() + Math.random(),
+    };
+    setCanvasTexts([...canvasTexts, newText]);
+    setSelectedElement({ type: 'canvas-text', imageIndex: null, elementIndex: canvasTexts.length });
+  };
 
   const handleSave = () => {
     const stage = stageRef.current;
@@ -212,17 +233,22 @@ export default function PhotoAlbum() {
     transformers.forEach(tr => tr.hide());
     stage.draw();
 
-    const dataURL = stage.toDataURL({ mimeType: 'image/png', pixelRatio: 2 });
+    setTimeout(() => {
+      try {
+        const dataURL = stage.toDataURL({ mimeType: 'image/png', pixelRatio: 2 });
+        const link = document.createElement('a');
+        link.download = `photo-album-page-${currentPageIndex + 1}.png`;
+        link.href = dataURL;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (error) {
+        console.error("Could not save image.", error);
+      }
 
-    transformers.forEach(tr => tr.show());
-    stage.draw();
-
-    const link = document.createElement('a');
-    link.download = `photo-album-page-${currentPageIndex + 1}.png`;
-    link.href = dataURL;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      transformers.forEach(tr => tr.show());
+      stage.draw();
+    }, 100);
   };
 
   if (isLoading) {
@@ -237,90 +263,94 @@ export default function PhotoAlbum() {
   }
 
   return (
-    <section className='bg-[#F0F1F5] p-0'>
-      <AlbunMenuBar
-        onUndo={undoRedoCallbacks.onUndo}
-        onRedo={undoRedoCallbacks.onRedo}
-        onSave={handleSave}
-      />
-      <div className='flex items-start justify-center'>
-        <LeftSide activeLeftBar={activeLeftBar} setActiveLeftBar={setActiveLeftBar} />
-        <MiddleSide
-          uploadedImages={uploadedImages}
-          handleImageUpload={handleImageUpload}
-          bgType={bgType}
-          setBgType={setBgType}
-          selectedBg={selectedBg}
-          setSelectedBg={setSelectedBg}
-          activeLeftBar={activeLeftBar}
-          setActiveLeftBar={setActiveLeftBar}
-          onSelectSticker={handleStickerSelect}
-          onSelectText={handleTextSelect}
-          onSelectLayout={handleLayoutSelect}
+    <>
+      <section className='bg-[#F0F1F5] p-0'>
+        <AlbunMenuBar
+          onUndo={undoRedoCallbacks.onUndo}
+          onRedo={undoRedoCallbacks.onRedo}
+          onSave={handleSave}
         />
-        <RightSide
-          stageRef={stageRef}
-          bgType={bgType}
-          setBgType={setBgType}
-          selectedBg={selectedBg}
-          setSelectedBg={setSelectedBg}
-          selectedSticker={selectedSticker}
-          setSelectedSticker={setSelectedSticker}
-          onStickerPlaced={onStickerPlaced}
-          selectedText={selectedText}
-          setSelectedText={setSelectedText}
-          selectedPhotoLayout={selectedPhotoLayout}
-          setSelectedPhotoLayout={setSelectedPhotoLayout}
-          onLayoutApplied={onLayoutApplied}
-          registerUndoRedoCallbacks={registerUndoRedoCallbacks}
-          placedImages={placedImages}
-          setPlacedImages={setPlacedImages}
-          gridCount={gridCount}
-          setGridCount={setGridCount}
-          gridPositions={gridPositions}
-          setGridPositions={setGridPositions}
-          layoutModeLeft={layoutModeLeft}
-          setLayoutModeLeft={setLayoutModeLeft}
-          layoutModeRight={layoutModeRight}
-          setLayoutModeRight={setLayoutModeRight}
-          history={history}
-          setHistory={setHistory}
-          historyIndex={historyIndex}
-          setHistoryIndex={setHistoryIndex}
-          lastStableState={lastStableState}
-          setLastStableState={setLastStableState}
-          selectedImageIndex={selectedImageIndex}
-          setSelectedImageIndex={setSelectedImageIndex}
-          selectedElement={selectedElement}
-          setSelectedElement={setSelectedElement}
-          contextMenu={contextMenu}
-          setContextMenu={setContextMenu}
-          selectedPartition={selectedPartition}
-          setSelectedPartition={setSelectedPartition}
-          showPageLayout={showPageLayout}
-          setShowPageLayout={setShowPageLayout}
-          loadedImages={loadedImages}
-          setLoadedImages={setLoadedImages}
-          activeLeftBar={activeLeftBar}
-          setActiveLeftBar={setActiveLeftBar}
-          skipAutoLayout={skipAutoLayout}
-          setSkipAutoLayout={setSkipAutoLayout}
-          canvasStickers={canvasStickers}
-          setCanvasStickers={setCanvasStickers}
+        <div className='flex items-start justify-center'>
+          <LeftSide activeLeftBar={activeLeftBar} setActiveLeftBar={setActiveLeftBar} />
+          <MiddleSide
+            uploadedImages={uploadedImages}
+            handleImageUpload={handleImageUpload}
+            bgType={bgType}
+            setBgType={setBgType}
+            selectedBg={selectedBg}
+            setSelectedBg={setSelectedBg}
+            activeLeftBar={activeLeftBar}
+            setActiveLeftBar={setActiveLeftBar}
+            onSelectSticker={handleStickerSelect}
+            onSelectLayout={handleLayoutSelect}
+          />
+          <RightSide
+            stageRef={stageRef}
+            bgType={bgType}
+            setBgType={setBgType}
+            selectedBg={selectedBg}
+            setSelectedBg={setSelectedBg}
+            selectedSticker={selectedSticker}
+            setSelectedSticker={setSelectedSticker}
+            onStickerPlaced={onStickerPlaced}
+            selectedText={selectedText}
+            setSelectedText={setSelectedText}
+            selectedPhotoLayout={selectedPhotoLayout}
+            setSelectedPhotoLayout={setSelectedPhotoLayout}
+            onLayoutApplied={onLayoutApplied}
+            registerUndoRedoCallbacks={registerUndoRedoCallbacks}
+            placedImages={placedImages}
+            setPlacedImages={setPlacedImages}
+            gridCount={gridCount}
+            setGridCount={setGridCount}
+            gridPositions={gridPositions}
+            setGridPositions={setGridPositions}
+            layoutModeLeft={layoutModeLeft}
+            setLayoutModeLeft={setLayoutModeLeft}
+            layoutModeRight={layoutModeRight}
+            setLayoutModeRight={setLayoutModeRight}
+            history={history}
+            setHistory={setHistory}
+            historyIndex={historyIndex}
+            setHistoryIndex={setHistoryIndex}
+            lastStableState={lastStableState}
+            setLastStableState={setLastStableState}
+            selectedImageIndex={selectedImageIndex}
+            setSelectedImageIndex={setSelectedImageIndex}
+            selectedElement={selectedElement}
+            setSelectedElement={setSelectedElement}
+            contextMenu={contextMenu}
+            setContextMenu={setContextMenu}
+            selectedPartition={selectedPartition}
+            setSelectedPartition={setSelectedPartition}
+            showPageLayout={showPageLayout}
+            setShowPageLayout={setShowPageLayout}
+            loadedImages={loadedImages}
+            setLoadedImages={setLoadedImages}
+            activeLeftBar={activeLeftBar}
+            setActiveLeftBar={setActiveLeftBar}
+            skipAutoLayout={skipAutoLayout}
+            setSkipAutoLayout={setSkipAutoLayout}
+            canvasStickers={canvasStickers}
+            setCanvasStickers={setCanvasStickers}
+            canvasTexts={canvasTexts}
+            setCanvasTexts={setCanvasTexts}
+            onAddCanvasText={handleAddCanvasText}
+          />
+        </div>
+        <PageNavigation
+          currentPage={currentPageIndex}
+          totalPages={pages.length}
+          pages={pages.map((page, index) => index === currentPageIndex ? {
+            placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg,
+            history, historyIndex, lastStableState, skipAutoLayout, canvasStickers, canvasTexts
+          } : page)}
+          onPageChange={handlePageChange}
+          onAddPage={handleAddBlankPage}
+          onDuplicatePage={handleDuplicatePage}
+          onRemovePage={handleRemovePage}
         />
-      </div>
-      <PageNavigation 
-        currentPage={currentPageIndex}
-        totalPages={pages.length}
-        pages={pages.map((page, index) => index === currentPageIndex ? {
-          placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg,
-          history, historyIndex, lastStableState, skipAutoLayout, canvasStickers
-        } : page)}
-        onPageChange={handlePageChange}
-        onAddPage={handleAddBlankPage}
-        onDuplicatePage={handleDuplicatePage}
-        onRemovePage={handleRemovePage}
-      />
-    </section>
+      </section>
+    </>
   );
 }

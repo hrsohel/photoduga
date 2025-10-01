@@ -5,9 +5,8 @@ import Background from './Background';
 import StickerComponent from './StickerComponent';
 import PhotoLayouts from './PhotoLayouts'; // Updated to use GridLayoutComponent
 import Pictures from './Pictures';
-// import TextComponent from './TextComponent';
 
-export default function MiddleSide({ uploadedImages, handleImageUpload, activeLeftBar, bgType, setBgType, selectedBg, setSelectedBg, onSelectSticker, onSelectText, onSelectLayout }) {
+export default function MiddleSide({ uploadedImages, handleImageUpload, activeLeftBar, bgType, setBgType, selectedBg, setSelectedBg, onSelectSticker, onSelectLayout }) {
   const showComponent = {
     "Frames": () => <Frames uploadedImages={uploadedImages} handleImageUpload={handleImageUpload} />,
     "Stickers": () => <StickerComponent onSelectSticker={onSelectSticker} />,
@@ -21,7 +20,6 @@ export default function MiddleSide({ uploadedImages, handleImageUpload, activeLe
     />,
     "Photo Layouts": () => <PhotoLayouts onSelectLayout={onSelectLayout} />, // Changed to onSelectLayout
     "Pictures": () => <Pictures />,
-    // "Text": () => <TextComponent onSelectText={onSelectText} />,
   };
 
   return (

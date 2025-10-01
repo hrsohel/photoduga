@@ -1,5 +1,6 @@
 import React from 'react';
 
+
 const PageThumbnail = ({ page }) => {
   const canvasWidth = 1280;
   const canvasHeight = 650;
@@ -25,6 +26,7 @@ const PageThumbnail = ({ page }) => {
   }
 
   return (
+    <>
     <div style={backgroundStyle}>
       {page.gridPositions && page.gridPositions.map((grid, index) => {
         if (grid.shape !== 'rect') return null; // Don't render the middle lines
@@ -42,7 +44,25 @@ const PageThumbnail = ({ page }) => {
 
         return <div key={index} style={gridStyle}></div>;
       })}
+      {page.canvasTexts && page.canvasTexts.map((text, index) => {
+        const textStyle = {
+          position: 'absolute',
+          left: `${text.x * scaleX}px`,
+          top: `${text.y * scaleY}px`,
+          width: `${text.width * scaleX}px`,
+          height: `${text.height * scaleY}px`,
+          fontSize: `${text.fontSize * scaleY}px`,
+          fontFamily: text.fontFamily,
+          color: text.fill,
+          textAlign: text.align,
+          textDecoration: text.textDecoration,
+          whiteSpace: 'nowrap',
+        };
+
+        return <div key={index} style={textStyle}>{text.text}</div>;
+      })}
     </div>
+    </>
   );
 };
 

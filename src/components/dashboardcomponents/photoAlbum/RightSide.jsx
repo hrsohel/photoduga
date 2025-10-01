@@ -3,6 +3,7 @@ import { Stage, Layer, Image as KonvaImage, Text, Group, Transformer, Rect } fro
 import useImage from "use-image";
 import Konva from "konva";
 import AvailablePages from "./AvailablePages";
+import TextEditingTools from "./TextEditingTools";
 
 const loadImage = async (src) => {
   if (!src) return new Image();
@@ -105,12 +106,17 @@ export default function RightSide({
   setSkipAutoLayout,
   canvasStickers,
   setCanvasStickers,
+  canvasTexts,
+  setCanvasTexts,
+  onAddCanvasText,
 }) {
   const gridRefs = useRef([]);
+  const gridTransformerRef = useRef(null);
   const imageTransformerRef = useRef(null);
   const textTransformerRef = useRef(null);
   const stickerTransformerRef = useRef(null);
   const canvasStickerTransformerRef = useRef(null); // New transformer ref
+  const canvasTextTransformerRef = useRef(null);
   const previousGridPositionsRef = useRef([]);
   const [isRestoring, setIsRestoring] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -123,6 +129,7 @@ export default function RightSide({
     selectedElement, contextMenu, selectedPartition, showPageLayout, activeLeftBar, skipAutoLayout,
     history, historyIndex, setHistory, setHistoryIndex,
     canvasStickers, // Add to history ref
+    canvasTexts,
   };
 
   // Initialize grid positions when component mounts or when gridCount changes
@@ -146,7 +153,8 @@ export default function RightSide({
         selectedBg, selectedSticker, selectedText, selectedPhotoLayout, selectedImageIndex,
         selectedElement, contextMenu, selectedPartition, showPageLayout, activeLeftBar, skipAutoLayout,
         history, historyIndex, setHistory, setHistoryIndex,
-        canvasStickers
+        canvasStickers,
+        canvasTexts
     } = stateForHistoryRef.current;
 
     const newState = {
@@ -172,6 +180,7 @@ export default function RightSide({
       activeLeftBar,
       skipAutoLayout,
       canvasStickers: JSON.parse(JSON.stringify(canvasStickers)),
+      canvasTexts: JSON.parse(JSON.stringify(canvasTexts)),
     };
     
     const newHistory = history.slice(0, historyIndex + 1);
@@ -206,6 +215,7 @@ export default function RightSide({
       setActiveLeftBar(prevState.activeLeftBar || "Frames");
       setSkipAutoLayout(prevState.skipAutoLayout || false);
       setCanvasStickers(prevState.canvasStickers || []);
+      setCanvasTexts(prevState.canvasTexts || []);
       
       setHistoryIndex(prevIndex);
       console.log('Undo performed');
@@ -238,6 +248,7 @@ export default function RightSide({
       setActiveLeftBar(nextState.activeLeftBar || "Frames");
       setSkipAutoLayout(nextState.skipAutoLayout || false);
       setCanvasStickers(nextState.canvasStickers || []);
+      setCanvasTexts(nextState.canvasTexts || []);
       
       setHistoryIndex(nextIndex);
       console.log('Redo performed');
@@ -265,7 +276,7 @@ export default function RightSide({
     }
   }, [isRestoring]);
 
-  const [bgImage] = useImage(bgType === 'image' && selectedBg.startsWith('http') ? selectedBg : null);
+  const [bgImage] = useImage(bgType === 'image' && selectedBg.startsWith('http') ? selectedBg : null, 'anonymous');
 
   // Improved image loading with better error handling
   useEffect(() => {
@@ -372,6 +383,28 @@ export default function RightSide({
     node.scaleY(1);
   };
 
+  const handleCanvasTextTransformEnd = (textIndex, e) => {
+    const node = e.target;
+    const newCanvasTexts = canvasTexts.map((text, tIndex) => {
+        if (tIndex === textIndex) {
+            return {
+                ...text,
+                width: node.width() * node.scaleX(),
+                height: node.height() * node.scaleY(),
+                scaleX: node.scaleX(),
+                scaleY: node.scaleY(),
+                rotation: node.rotation(),
+            };
+        }
+        return text;
+    });
+    setCanvasTexts(newCanvasTexts);
+    saveToHistory();
+
+    node.scaleX(1);
+    node.scaleY(1);
+  };
+
   useEffect(() => {
     if (!transformersReady) return;
 
@@ -382,6 +415,7 @@ export default function RightSide({
         if (textTransformerRef.current) textTransformerRef.current.nodes([]);
         if (stickerTransformerRef.current) stickerTransformerRef.current.nodes([]);
         if (canvasStickerTransformerRef.current) canvasStickerTransformerRef.current.nodes([]);
+        if (canvasTextTransformerRef.current) canvasTextTransformerRef.current.nodes([]);
       }
     } else if (selectedElement.type === 'text' && selectedElement.imageIndex !== null && selectedElement.elementIndex !== null) {
       const textNode = gridRefs.current[selectedElement.imageIndex]?.current?.findOne(`.text-${selectedElement.elementIndex}`);
@@ -391,6 +425,7 @@ export default function RightSide({
         if (imageTransformerRef.current) imageTransformerRef.current.nodes([]);
         if (stickerTransformerRef.current) stickerTransformerRef.current.nodes([]);
         if (canvasStickerTransformerRef.current) canvasStickerTransformerRef.current.nodes([]);
+        if (canvasTextTransformerRef.current) canvasTextTransformerRef.current.nodes([]);
       }
     } else if (selectedElement.type === 'sticker' && selectedElement.imageIndex !== null && selectedElement.elementIndex !== null) {
       const stickerNode = gridRefs.current[selectedElement.imageIndex]?.current?.findOne(`.sticker-${selectedElement.elementIndex}`);
@@ -400,6 +435,7 @@ export default function RightSide({
         if (imageTransformerRef.current) imageTransformerRef.current.nodes([]);
         if (textTransformerRef.current) textTransformerRef.current.nodes([]);
         if (canvasStickerTransformerRef.current) canvasStickerTransformerRef.current.nodes([]);
+        if (canvasTextTransformerRef.current) canvasTextTransformerRef.current.nodes([]);
       }
     } else if (selectedElement.type === 'canvas-sticker' && selectedElement.elementIndex !== null) {
       const stickerNode = stageRef.current.findOne(`.canvas-sticker-${selectedElement.elementIndex}`);
@@ -409,24 +445,47 @@ export default function RightSide({
         if (imageTransformerRef.current) imageTransformerRef.current.nodes([]);
         if (textTransformerRef.current) textTransformerRef.current.nodes([]);
         if (stickerTransformerRef.current) stickerTransformerRef.current.nodes([]);
+        if (canvasTextTransformerRef.current) canvasTextTransformerRef.current.nodes([]);
+      }
+    } else if (selectedElement.type === 'canvas-text' && selectedElement.elementIndex !== null) {
+      const textNode = stageRef.current.findOne(`.canvas-text-${selectedElement.elementIndex}`);
+      if (canvasTextTransformerRef.current) {
+        canvasTextTransformerRef.current.nodes([textNode]);
+        canvasTextTransformerRef.current.getLayer()?.batchDraw();
+        if (imageTransformerRef.current) imageTransformerRef.current.nodes([]);
+        if (textTransformerRef.current) textTransformerRef.current.nodes([]);
+        if (stickerTransformerRef.current) stickerTransformerRef.current.nodes([]);
+        if (canvasStickerTransformerRef.current) canvasStickerTransformerRef.current.nodes([]);
+      }
+    } else if (selectedElement.type === 'grid' && selectedElement.imageIndex !== null) {
+      const selectedNode = gridRefs.current[selectedElement.imageIndex]?.current;
+      if (selectedNode && gridTransformerRef.current) {
+        gridTransformerRef.current.nodes([selectedNode]);
+        if (imageTransformerRef.current) imageTransformerRef.current.nodes([]);
+        if (textTransformerRef.current) textTransformerRef.current.nodes([]);
+        if (stickerTransformerRef.current) stickerTransformerRef.current.nodes([]);
+        if (canvasStickerTransformerRef.current) canvasStickerTransformerRef.current.nodes([]);
+        if (canvasTextTransformerRef.current) canvasTextTransformerRef.current.nodes([]);
       }
     } else {
+      if (gridTransformerRef.current) gridTransformerRef.current.nodes([]);
       if (imageTransformerRef.current) imageTransformerRef.current.nodes([]);
       if (textTransformerRef.current) textTransformerRef.current.nodes([]);
       if (stickerTransformerRef.current) stickerTransformerRef.current.nodes([]);
       if (canvasStickerTransformerRef.current) canvasStickerTransformerRef.current.nodes([]);
+      if (canvasTextTransformerRef.current) canvasTextTransformerRef.current.nodes([]);
     }
   }, [selectedElement, transformersReady, stageRef]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Backspace' && selectedElement.type && selectedElement.imageIndex !== null) {
-        let newPlacedImages;
-        if (selectedElement.type === 'image') {
-          newPlacedImages = placedImages.filter(img => img.gridId !== selectedElement.imageIndex);
+      if (e.key === 'Backspace' && selectedElement.type) {
+        if (selectedElement.type === 'image' && selectedElement.imageIndex !== null) {
+          let newPlacedImages = placedImages.filter(img => img.gridId !== selectedElement.imageIndex);
+          setPlacedImages(newPlacedImages);
           setSelectedImageIndex(null);
-        } else if (selectedElement.type === 'text' || selectedElement.type === 'sticker') {
-          newPlacedImages = placedImages.map(img => {
+        } else if ((selectedElement.type === 'text' || selectedElement.type === 'sticker') && selectedElement.imageIndex !== null) {
+          let newPlacedImages = placedImages.map(img => {
             if (img.gridId === selectedElement.imageIndex) {
               let newImg = { ...img };
               if (selectedElement.type === 'text') {
@@ -438,15 +497,21 @@ export default function RightSide({
             }
             return img;
           });
+          setPlacedImages(newPlacedImages);
+        } else if (selectedElement.type === 'canvas-sticker') {
+          const newCanvasStickers = canvasStickers.filter((_, index) => index !== selectedElement.elementIndex);
+          setCanvasStickers(newCanvasStickers);
+        } else if (selectedElement.type === 'canvas-text') {
+          const newCanvasTexts = canvasTexts.filter((_, index) => index !== selectedElement.elementIndex);
+          setCanvasTexts(newCanvasTexts);
         }
-        setPlacedImages(newPlacedImages);
         setSelectedElement({ type: null, imageIndex: null, elementIndex: null });
         saveToHistory();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedElement, placedImages, setPlacedImages, setSelectedElement, setSelectedImageIndex]);
+  }, [selectedElement, placedImages, setPlacedImages, setSelectedElement, setSelectedImageIndex, canvasStickers, setCanvasStickers, canvasTexts, setCanvasTexts]);
 
   const handleImageClick = (index, e) => {
     e.cancelBubble = true;
@@ -484,124 +549,41 @@ export default function RightSide({
   };
 
   const getCurrentGridLayout = () => {
-    const stageWidth = 1280;
+    const stageWidth = 1250;
     const stageHeight = 650;
     const padding = 20;
     const middleGap = 40;
     const sideWidth = (stageWidth - middleGap) / 2;
     const rightX = sideWidth + middleGap;
     let layout = [];
+    const cellWidth = 200;
+    const cellHeight = 200;
 
-    const addSide = (count, startX, baseId, partition, mode) => {
+    const addSide = (count, startX, baseId, partition) => {
       if (count === 0) return;
-
-      const availableWidth = sideWidth - padding * 2;
-      const availableHeight = stageHeight - padding * 2;
-
-      if (mode === 0) {
-        const halfCount = Math.ceil(count / 2);
-        const topHeight = (availableHeight - padding) / 2;
-        const bottomCount = count - halfCount;
-        const bottomHeight = (availableHeight - topHeight - padding - padding * (bottomCount - 1)) / bottomCount;
-
-        let currentX = startX + padding;
-        const topWidth = availableWidth / halfCount;
-        for (let i = 0; i < halfCount; i++) {
-          layout.push({
-            x: currentX,
-            y: padding,
-            width: topWidth,
-            height: topHeight,
-            id: baseId + i,
-            shape: "rect",
-            partition: partition,
-            gridArea: `grid${i + 1}`
-          });
-          currentX += topWidth + padding;
+      let currentX = startX + padding;
+      let currentY = padding;
+      for (let i = 0; i < count; i++) {
+        if (currentX + cellWidth > startX + sideWidth) {
+          currentX = startX + padding;
+          currentY += cellHeight + padding;
         }
-
-        let currentY = padding + topHeight + padding;
-        for (let i = halfCount; i < count; i++) {
-          layout.push({
-            x: startX + padding,
-            y: currentY,
-            width: availableWidth,
-            height: bottomHeight,
-            id: baseId + i,
-            shape: "rect",
-            partition: partition,
-            gridArea: `grid${i + 1}`
-          });
-          currentY += bottomHeight + padding;
-        }
-      } else if (mode === 1) {
-        const leftWidth = availableWidth / 3;
-        const rightWidth = availableWidth - leftWidth - padding;
-        const rightCount = count - 1;
-        const rightHeight = availableHeight / rightCount;
-
         layout.push({
-          x: startX + padding,
-          y: padding,
-          width: leftWidth,
-          height: availableHeight,
-          id: baseId,
+          x: currentX,
+          y: currentY,
+          width: cellWidth,
+          height: cellHeight,
+          id: baseId + i,
           shape: "rect",
           partition: partition,
-          gridArea: 'grid1'
+          gridArea: `grid${i + 1}`
         });
-
-        let currentY = padding;
-        for (let i = 1; i < count; i++) {
-          layout.push({
-            x: startX + padding + leftWidth + padding,
-            y: currentY,
-            width: rightWidth,
-            height: rightHeight,
-            id: baseId + i,
-            shape: "rect",
-            partition: partition,
-            gridArea: `grid${i + 1}`
-          });
-          currentY += rightHeight + padding;
-        }
-      } else if (mode === 2) {
-        const gridHeight = availableHeight / count;
-        let currentY = padding;
-        for (let i = 0; i < count; i++) {
-          layout.push({
-            x: startX + padding,
-            y: currentY,
-            width: availableWidth,
-            height: gridHeight - (padding / count),
-            id: baseId + i,
-            shape: "rect",
-            partition: partition,
-            gridArea: `grid${i + 1}`
-          });
-          currentY += gridHeight;
-        }
-      } else if (mode === 3) {
-        const gridWidth = availableWidth / count;
-        let currentX = startX + padding;
-        for (let i = 0; i < count; i++) {
-          layout.push({
-            x: currentX,
-            y: padding,
-            width: gridWidth - (padding / count),
-            height: availableHeight,
-            id: baseId + i,
-            shape: "rect",
-            partition: partition,
-            gridArea: `grid${i + 1}`
-          });
-          currentX += gridWidth;
-        }
+        currentX += cellWidth + padding;
       }
     };
 
-    addSide(gridCount.left, 0, 0, 'left', layoutModeLeft);
-    addSide(gridCount.right, rightX, gridCount.left, 'right', layoutModeRight);
+    addSide(gridCount.left, 0, 0, 'left');
+    addSide(gridCount.right, rightX, gridCount.left, 'right');
 
     layout.push({
       x: sideWidth + 10,
@@ -723,19 +705,24 @@ export default function RightSide({
   };
 
   const handleElementDelete = (imageIndex, type, elementIndex) => {
-    const newPlacedImages = placedImages.map(img => {
-      if (img.gridId === imageIndex) {
-        const newImg = { ...img };
-        if (type === 'text') {
-          newImg.texts = img.texts.filter((_, index) => index !== elementIndex);
-        } else if (type === 'sticker') {
-          newImg.stickers = img.stickers.filter((_, index) => index !== elementIndex);
+    if (type === 'canvas-text') {
+      const newCanvasTexts = canvasTexts.filter((_, index) => index !== elementIndex);
+      setCanvasTexts(newCanvasTexts);
+    } else {
+      const newPlacedImages = placedImages.map(img => {
+        if (img.gridId === imageIndex) {
+          const newImg = { ...img };
+          if (type === 'text') {
+            newImg.texts = img.texts.filter((_, index) => index !== elementIndex);
+          } else if (type === 'sticker') {
+            newImg.stickers = img.stickers.filter((_, index) => index !== elementIndex);
+          }
+          return newImg;
         }
-        return newImg;
-      }
-      return img;
-    });
-    setPlacedImages(newPlacedImages);
+        return img;
+      });
+      setPlacedImages(newPlacedImages);
+    }
     setSelectedElement({ type: null, imageIndex: null, elementIndex: null });
     saveToHistory();
   };
@@ -905,19 +892,29 @@ export default function RightSide({
     area.focus();
     
     const handleTextSave = () => {
-      const newPlacedImages = placedImages.map(img => {
-        if (img.gridId === imageIndex) {
-          const newTexts = img.texts.map((text, tIndex) => {
-            if (tIndex === textIndex) {
-              return { ...text, text: area.value };
-            }
-            return text;
-          });
-          return { ...img, texts: newTexts };
-        }
-        return img;
-      });
-      setPlacedImages(newPlacedImages);
+      if (imageIndex === null) { // This is a canvas text
+        const newCanvasTexts = canvasTexts.map((text, tIndex) => {
+          if (tIndex === textIndex) {
+            return { ...text, text: area.value };
+          }
+          return text;
+        });
+        setCanvasTexts(newCanvasTexts);
+      } else { // This is a grid text
+        const newPlacedImages = placedImages.map(img => {
+          if (img.gridId === imageIndex) {
+            const newTexts = img.texts.map((text, tIndex) => {
+              if (tIndex === textIndex) {
+                return { ...text, text: area.value };
+              }
+              return text;
+            });
+            return { ...img, texts: newTexts };
+          }
+          return img;
+        });
+        setPlacedImages(newPlacedImages);
+      }
       saveToHistory();
       document.body.removeChild(area);
       area.removeEventListener('blur', handleTextSave);
@@ -951,6 +948,51 @@ export default function RightSide({
       setLayoutModeLeft((prev) => (prev + 1) % 4);
     } else if (selectedPartition === 'right') {
       setLayoutModeRight((prev) => (prev + 1) % 4);
+    }
+    saveToHistory();
+  };
+
+  const handleUpdateCanvasText = (updatedText) => {
+    const newCanvasTexts = canvasTexts.map((text) => {
+      if (text.id === updatedText.id) {
+        return updatedText;
+      }
+      return text;
+    });
+    setCanvasTexts(newCanvasTexts);
+  };
+
+  const handleGridGroupTransformEnd = (index, e) => {
+    const node = e.target;
+    const scaleX = node.scaleX();
+    const scaleY = node.scaleY();
+    node.scaleX(1);
+    node.scaleY(1);
+
+    const newGridPositions = [...gridPositions];
+    const oldPos = newGridPositions[index];
+    newGridPositions[index] = {
+      ...oldPos,
+      x: node.x(),
+      y: node.y(),
+      width: oldPos.width * scaleX,
+      height: oldPos.height * scaleY,
+    };
+    setGridPositions(newGridPositions);
+
+    const imageInGrid = placedImages.find(img => img.gridId === oldPos.id);
+    if (imageInGrid) {
+      const newPlacedImages = placedImages.map(img => {
+        if (img.gridId === oldPos.id) {
+          return {
+            ...img,
+            width: newGridPositions[index].width,
+            height: newGridPositions[index].height,
+          };
+        }
+        return img;
+      });
+      setPlacedImages(newPlacedImages);
     }
     saveToHistory();
   };
@@ -1022,9 +1064,9 @@ export default function RightSide({
   return (
     <>
     <div className="flex w-full h-[90vh] justify-start items-start bg-gray-200">
-      <div className="flex w-[1280px] h-[100%] gap-4 items-start">
+      <div className="flex w-[1250px] h-[100%] gap-4 items-start">
         <div className="w-[100px] h-full p-4 border-r space-y-4 bg-gray-100 border-2">
-          <div onClick={handleAddText} className="border-[1px] p-[10px] rounded-[2px] border-[#E0E0E0] cursor-pointer w-[40px]">
+          <div onClick={onAddCanvasText} className="border-[1px] p-[10px] rounded-[2px] border-[#E0E0E0] cursor-pointer w-[40px]">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M10.0002 14.0007H6.00016M8.00016 2V14M8.00016 2C8.92483 2 9.9135 2.02 11.0588 2.11733C11.4588 2.15867 11.6588 2.17933 11.8362 2.252C12.0214 2.33032 12.187 2.44855 12.3212 2.59824C12.4555 2.74793 12.555 2.92541 12.6128 3.118C12.6668 3.30267 12.6668 3.51333 12.6668 3.93467M8.00016 2C7.0755 2 5.88683 2.02 4.9415 2.11733C4.5415 2.15867 4.3415 2.17933 4.16416 2.252C3.97885 2.33024 3.81309 2.44843 3.67872 2.59813C3.54435 2.74783 3.44468 2.92534 3.38683 3.118C3.3335 3.30267 3.3335 3.51333 3.3335 3.93467" stroke="#A8C3A0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
@@ -1085,10 +1127,23 @@ export default function RightSide({
             </div>
           </div>
         </div>
-        <div className="flex-1 flex justify-center items-center bg-gray-200 relative">
+        <div className="flex-1 flex justify-center items-center bg-gray-200 relative border-[12px] border-[#A8C3A0] mt-4">
+          {selectedElement.type === 'canvas-text' && (
+            <div style={{ 
+              position: 'absolute', 
+              top: canvasTexts[selectedElement.elementIndex]?.y + canvasTexts[selectedElement.elementIndex]?.height + 10, 
+              left: canvasTexts[selectedElement.elementIndex]?.x, 
+              zIndex: 100 
+            }}>
+              <TextEditingTools
+                selectedText={canvasTexts[selectedElement.elementIndex]}
+                onUpdateText={handleUpdateCanvasText}
+              />
+            </div>
+          )}
           <Stage
             ref={stageRef}
-            width={1280}
+            width={1250}
             height={650}
             onClick={(e) => {
               // if click is on empty area of the stage
@@ -1113,7 +1168,7 @@ export default function RightSide({
               <Rect
                 x={0}
                 y={0}
-                width={580}
+                width={605}
                 height={650}
                 fill={selectedPartition === 'left' ? 'rgba(168, 195, 160, 0.1)' : 'transparent'}
                 stroke="transparent"
@@ -1121,9 +1176,9 @@ export default function RightSide({
                 onClick={(e) => handlePartitionClick('left', e)}
               />
               <Rect
-                x={620}
+                x={645}
                 y={0}
-                width={580}
+                width={605}
                 height={650}
                 fill={selectedPartition === 'right' ? 'rgba(168, 195, 160, 0.1)' : 'transparent'}
                 stroke="transparent"
@@ -1144,9 +1199,21 @@ export default function RightSide({
                     y={frame.y}
                     draggable={frame.shape === "rect"}
                     onDragEnd={(e) => frame.shape === "rect" && handleGridDragEnd(i, e)}
-                    onClick={(e) => imageInThisGrid && handleImageClick(frame.id, e)}
+                    onClick={(e) => {
+                      if (frame.shape === "rect") {
+                        setSelectedElement({ type: 'grid', imageIndex: i, elementIndex: null });
+                      } else if (imageInThisGrid) {
+                        handleImageClick(frame.id, e)
+                      }
+                    }}
                     onDblClick={(e) => imageInThisGrid && handleImageDblClick(frame.id, e)}
-                    onTransformEnd={(e) => frame.shape === "rect" && handleTransformEnd(frame.id, e)}
+                    onTransformEnd={(e) => {
+                      if (selectedElement.type === 'grid') {
+                        handleGridGroupTransformEnd(i, e);
+                      } else if (imageInThisGrid) {
+                        handleTransformEnd(frame.id, e)
+                      }
+                    }}
                     onContextMenu={(e) => imageInThisGrid && handleContextMenu('image', frame.id, null, e)}
                     scaleX={imageInThisGrid?.scaleX || 1}
                     scaleY={imageInThisGrid?.scaleY || 1}
@@ -1158,8 +1225,8 @@ export default function RightSide({
                         width={frame.width}
                         height={frame.height}
                         fill={fill}
-                        stroke="#ddd"
-                        strokeWidth={1}
+                        stroke="#A8C3A0"
+                        strokeWidth={3}
                         cornerRadius={8}
                       />
                     )}
@@ -1285,9 +1352,11 @@ export default function RightSide({
                 );
               })}
               <Transformer
-                ref={(node) => {
-                  imageTransformerRef.current = node;
-                }}
+                ref={gridTransformerRef}
+                keepRatio={false}
+              />
+              <Transformer
+                ref={imageTransformerRef}
                 keepRatio={false}
                 enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right', 'top-center', 'bottom-center']}
               />
@@ -1334,6 +1403,46 @@ export default function RightSide({
                   />
                 ))
               }
+              {
+                canvasTexts.map((text, index) => (
+                  <Text
+                    key={`canvas-text-${index}`}
+                    name={`canvas-text-${index}`}
+                    x={text.x}
+                    y={text.y}
+                    text={text.text}
+                    fontSize={text.fontSize}
+                    fontFamily={text.fontFamily}
+                    fill={text.fill}
+                    width={text.width}
+                    height={text.height}
+                    scaleX={text.scaleX}
+                    scaleY={text.scaleY}
+                    rotation={text.rotation}
+                    draggable={text.draggable}
+                    align={text.align}
+                    textDecoration={text.textDecoration}
+                    onClick={(e) => handleElementClick('canvas-text', null, index, e)}
+                    onDblClick={(e) => handleTextDblClick(null, index, e)}
+                    onTransformEnd={(e) => handleCanvasTextTransformEnd(index, e)}
+                    onContextMenu={(e) => handleContextMenu('canvas-text', null, index, e)}
+                    onDragStart={(e) => {
+                      e.cancelBubble = true;
+                    }}
+                    onDragEnd={(e) => {
+                      e.cancelBubble = true;
+                      const newCanvasTexts = canvasTexts.map((t, i) => {
+                        if (i === index) {
+                          return { ...t, x: e.target.x(), y: e.target.y() };
+                        }
+                        return t;
+                      });
+                      setCanvasTexts(newCanvasTexts);
+                      saveToHistory();
+                    }}
+                  />
+                ))
+              }
               <Transformer
                 ref={(node) => {
                   stickerTransformerRef.current = node;
@@ -1344,6 +1453,13 @@ export default function RightSide({
               <Transformer
                 ref={(node) => {
                   canvasStickerTransformerRef.current = node;
+                }}
+                keepRatio={false}
+                enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right', 'top-center', 'bottom-center']}
+              />
+              <Transformer
+                ref={(node) => {
+                  canvasTextTransformerRef.current = node;
                 }}
                 keepRatio={false}
                 enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right', 'top-center', 'bottom-center']}
@@ -1366,7 +1482,7 @@ export default function RightSide({
             />
           )}
 
-          {contextMenu.visible && (contextMenu.type === 'text' || contextMenu.type === 'sticker') && (
+          {contextMenu.visible && (contextMenu.type === 'text' || contextMenu.type === 'sticker' || contextMenu.type === 'canvas-text' || contextMenu.type === 'canvas-sticker') && (
             <div
               style={{
                 position: "absolute",
