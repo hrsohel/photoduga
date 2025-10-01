@@ -1,41 +1,26 @@
 import React, { useState } from 'react';
+import PageThumbnail from './PageThumbnail';
 
-const PageNavigation = ({ currentPage, onPageChange }) => {
+const PageNavigation = ({ currentPage, totalPages, pages, onPageChange, onAddPage, onDuplicatePage, onRemovePage }) => {
   const [zoomLevel, setZoomLevel] = useState('100%');
 
   const handlePreviousPage = () => {
-    if (currentPage > 3) {
-      onPageChange(currentPage - 2);
+    if (currentPage > 0) {
+      onPageChange(currentPage - 1);
     }
   };
 
   const handleNextPage = () => {
-    if (currentPage < 9) {
-      onPageChange(currentPage + 2);
+    if (currentPage < totalPages - 1) {
+      onPageChange(currentPage + 1);
     }
   };
 
   const handleZoomChange = (level) => {
     setZoomLevel(level);
-    // Implement zoom functionality if needed
     console.log("Zoom changed to:", level);
   };
-
-  const handleDuplicatePage = () => {
-    // Implement duplicate page functionality
-    console.log("Duplicate page:", currentPage);
-  };
-
-  const handleRemovePage = () => {
-    // Implement remove page functionality
-    console.log("Remove page:", currentPage);
-  };
-
-  const handleAddBlankPage = () => {
-    // Implement add blank page functionality
-    console.log("Add blank page");
-  };
-
+  console.log(pages)
   return (
     <div className="w-full bg-white border-t border-gray-200 p-4">
       <div className="flex items-center justify-between mb-2">
@@ -49,15 +34,15 @@ const PageNavigation = ({ currentPage, onPageChange }) => {
         <div className="flex items-center space-x-2">
           <button 
             onClick={handlePreviousPage}
-            disabled={currentPage <= 3}
+            disabled={currentPage <= 0}
             className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Previous page
           </button>
-          <span className="text-xs font-medium text-gray-700">Page {currentPage} - {currentPage + 1}</span>
+          <span className="text-xs font-medium text-gray-700">Page {currentPage * 2 + 1} - {currentPage * 2 + 2}</span>
           <button 
             onClick={handleNextPage}
-            disabled={currentPage >= 9}
+            disabled={currentPage >= totalPages - 1}
             className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Next page
@@ -78,21 +63,21 @@ const PageNavigation = ({ currentPage, onPageChange }) => {
           </select>
           
           <button 
-            onClick={handleAddBlankPage}
+            onClick={onAddPage}
             className="text-xs text-gray-600 hover:text-gray-800"
           >
             Blank page
           </button>
           
           <button 
-            onClick={handleDuplicatePage}
+            onClick={onDuplicatePage}
             className="text-xs text-gray-600 hover:text-gray-800"
           >
             Duplicate
           </button>
           
           <button 
-            onClick={handleRemovePage}
+            onClick={onRemovePage}
             className="text-xs text-red-600 hover:text-red-800"
           >
             Remove
@@ -100,31 +85,19 @@ const PageNavigation = ({ currentPage, onPageChange }) => {
         </div>
       </div>
 
-      {/* Horizontal scrollable page thumbnails */}
       <div 
         className="flex space-x-3 overflow-x-auto pb-2"
         style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e0 #f1f5f9' }}
       >
-        {/* Covers */}
-        <div 
-          className={`flex-shrink-0 w-16 h-20 bg-gray-100 border rounded flex items-center justify-center cursor-pointer ${
-            currentPage === 1 ? 'border-2 border-blue-500' : 'border-gray-300'
-          }`}
-          onClick={() => onPageChange(1)}
-        >
-          <span className="text-xs text-gray-600">Page 1-2</span>
-        </div>
-        
-        {/* Page thumbnails */}
-        {[3, 5, 7, 9].map((page) => (
+        {pages && pages.map((page, pageIndex) => (
           <div 
-            key={page}
-            className={`flex-shrink-0 w-16 h-20 border rounded flex items-center justify-center cursor-pointer ${
-              currentPage === page ? 'border-2 border-blue-500' : 'border-gray-300'
+            key={pageIndex}
+            className={`flex-shrink-0 w-24 h-20 border rounded flex items-center justify-center cursor-pointer ${
+              currentPage === pageIndex ? 'border-2 border-blue-500' : 'border-gray-300'
             }`}
-            onClick={() => onPageChange(page)}
+            onClick={() => onPageChange(pageIndex)}
           >
-            <span className="text-xs text-gray-600">Page {page}-{page+1}</span>
+            <PageThumbnail page={page} />
           </div>
         ))}
       </div>

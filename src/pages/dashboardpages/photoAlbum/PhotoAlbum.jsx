@@ -6,209 +6,184 @@ import RightSide from '@/components/dashboardcomponents/photoAlbum/RightSide';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { get, set, clear } from '@/lib/db';
 
+const createBlankPage = () => ({
+  placedImages: [],
+  gridCount: { left: 5, right: 5 },
+  gridPositions: [],
+  layoutModeLeft: 0,
+  layoutModeRight: 0,
+  bgType: 'plain',
+  selectedBg: '#FFFFFF',
+  history: [],
+  historyIndex: -1,
+  lastStableState: { gridCount: { left: 5, right: 5 }, layoutModeLeft: 0, layoutModeRight: 0 },
+  skipAutoLayout: false,
+  canvasStickers: [],
+});
+
 export default function PhotoAlbum() {
   const stageRef = useRef(null);
+  const [pages, setPages] = useState([createBlankPage()]);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+
+  // States for the active page
   const [uploadedImages, setUploadedImages] = useState([]);
-  const [bgType, setBgType] = useState('plain');
-  const [selectedBg, setSelectedBg] = useState('#D81B60');
+  const [bgType, setBgType] = useState(pages[currentPageIndex].bgType);
+  const [selectedBg, setSelectedBg] = useState(pages[currentPageIndex].selectedBg);
   const [selectedSticker, setSelectedSticker] = useState(null);
   const [selectedText, setSelectedText] = useState(null);
   const [selectedPhotoLayout, setSelectedPhotoLayout] = useState(null);
   const [activeLeftBar, setActiveLeftBar] = useState("Frames");
-  const [placedImages, setPlacedImages] = useState([]);
-  const [gridCount, setGridCount] = useState({ left: 5, right: 5 });
-  const [gridPositions, setGridPositions] = useState([]);
-  const [layoutModeLeft, setLayoutModeLeft] = useState(0);
-  const [layoutModeRight, setLayoutModeRight] = useState(0);
-  const [history, setHistory] = useState([
-    {
-      placedImages: [],
-      gridCount: { left: 5, right: 5 },
-      gridPositions: [],
-      layoutModeLeft: 0,
-      layoutModeRight: 0,
-      bgType: 'plain',
-      selectedBg: '#D81B60',
-      skipAutoLayout: false,
-    },
-  ]);
-  const [historyIndex, setHistoryIndex] = useState(0);
-  const [lastStableState, setLastStableState] = useState({ gridCount: { left: 5, right: 5 }, layoutModeLeft: 0, layoutModeRight: 0 });
+  const [placedImages, setPlacedImages] = useState(pages[currentPageIndex].placedImages);
+  const [gridCount, setGridCount] = useState(pages[currentPageIndex].gridCount);
+  const [gridPositions, setGridPositions] = useState(pages[currentPageIndex].gridPositions);
+  const [layoutModeLeft, setLayoutModeLeft] = useState(pages[currentPageIndex].layoutModeLeft);
+  const [layoutModeRight, setLayoutModeRight] = useState(pages[currentPageIndex].layoutModeRight);
+  const [history, setHistory] = useState(pages[currentPageIndex].history);
+  const [historyIndex, setHistoryIndex] = useState(pages[currentPageIndex].historyIndex);
+  const [lastStableState, setLastStableState] = useState(pages[currentPageIndex].lastStableState);
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   const [selectedElement, setSelectedElement] = useState({ type: null, imageIndex: null, elementIndex: null });
-  const [contextMenu, setContextMenu] = useState({
-    visible: false,
-    x: 0,
-    y: 0,
-    type: null,
-    imageIndex: null,
-    elementIndex: null,
-  });
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, type: null, imageIndex: null, elementIndex: null });
   const [selectedPartition, setSelectedPartition] = useState('left');
   const [showPageLayout, setShowPageLayout] = useState(false);
   const [loadedImages, setLoadedImages] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [skipAutoLayout, setSkipAutoLayout] = useState(false);
-  const [canvasStickers, setCanvasStickers] = useState([]);
+  const [skipAutoLayout, setSkipAutoLayout] = useState(pages[currentPageIndex].skipAutoLayout);
+  const [canvasStickers, setCanvasStickers] = useState(pages[currentPageIndex].canvasStickers);
 
-  // Load state from IndexedDB on mount
+  const onStickerPlaced = useCallback(() => {
+    setSelectedSticker(null);
+  }, []);
+
+  const onLayoutApplied = useCallback(() => {
+    setSelectedPhotoLayout(null);
+  }, []);
+
+  const [undoRedoCallbacks, setUndoRedoCallbacks] = useState({ onUndo: () => {}, onRedo: () => {} });
+
+  const registerUndoRedoCallbacks = useCallback((callbacks) => {
+    setUndoRedoCallbacks(callbacks);
+  }, []);
+
+  // Load all pages from IndexedDB
   useEffect(() => {
-    async function loadState() {
+    async function loadPages() {
       try {
-        const savedState = await get('photoAlbumState');
-        if (savedState) {
-          try {
-            // Load only serializable, non-image data
-            setGridPositions(Array.isArray(savedState.gridPositions) ? savedState.gridPositions : []);
-            setGridCount(typeof savedState.gridCount === 'object' ? savedState.gridCount : { left: 5, right: 5 });
-            setLastStableState(typeof savedState.lastStableState === 'object' ? savedState.lastStableState : { gridCount: { left: 5, right: 5 }, layoutModeLeft: 0, layoutModeRight: 0 });
-            setBgType(typeof savedState.bgType === 'string' ? savedState.bgType : 'plain');
-            setSelectedBg(typeof savedState.selectedBg === 'string' ? savedState.selectedBg : '#D81B60');
-            setSelectedSticker(typeof savedState.selectedSticker === 'string' ? savedState.selectedSticker : null);
-            setSelectedText(savedState.selectedText || null);
-            setSelectedPhotoLayout(savedState.selectedPhotoLayout || null);
-            setActiveLeftBar(typeof savedState.activeLeftBar === 'string' ? savedState.activeLeftBar : "Frames");
-            setLayoutModeLeft(typeof savedState.layoutModeLeft === 'number' ? savedState.layoutModeLeft : 0);
-            setLayoutModeRight(typeof savedState.layoutModeRight === 'number' ? savedState.layoutModeRight : 0);
-            setSelectedPartition(typeof savedState.selectedPartition === 'string' ? savedState.selectedPartition : 'left');
-            setShowPageLayout(typeof savedState.showPageLayout === 'boolean' ? savedState.showPageLayout : false);
-            setSkipAutoLayout(typeof savedState.skipAutoLayout === 'boolean' ? savedState.skipAutoLayout : false);
-            setPlacedImages(
-            (Array.isArray(savedState.placedImages) ? savedState.placedImages : []).map(img => ({
-              ...img,
-              texts: Array.isArray(img.texts) ? img.texts : [],
-              stickers: Array.isArray(img.stickers) ? img.stickers : [],
-            }))
-          );
-            setHistory(Array.isArray(savedState.history) && savedState.history.length > 0 ? savedState.history : [
-              {
-                placedImages: [],
-                gridCount: { left: 5, right: 5 },
-                gridPositions: [],
-                layoutModeLeft: 0,
-                layoutModeRight: 0,
-                bgType: 'plain',
-                selectedBg: '#D81B60',
-                skipAutoLayout: false,
-              },
-            ]);
-            setHistoryIndex(typeof savedState.historyIndex === 'number' ? savedState.historyIndex : 0);
-
-
-            console.log('Album state loaded successfully from IndexedDB');
-          } catch (error) {
-            console.error('Error processing loaded album state, resetting to default:', error);
-            resetToDefaultState();
-          }
+        const savedData = await get('photoAlbumPages');
+        if (savedData && Array.isArray(savedData.pages) && savedData.pages.length > 0) {
+          setPages(savedData.pages);
+          const pageIndex = savedData.currentPageIndex || 0;
+          setCurrentPageIndex(pageIndex);
+          loadPageData(savedData.pages[pageIndex]);
         } else {
-          console.log('No saved state found in IndexedDB, using default state');
+          loadPageData(pages[0]);
         }
       } catch (error) {
-        console.error('Error loading album state from IndexedDB, clearing stored data and resetting to default:', error);
-        try {
-          await clear();
-        } catch (clearError) {
-          console.error('Failed to clear IndexedDB:', clearError);
-        }
-        resetToDefaultState();
+        console.error("Error loading pages, resetting to default.", error);
+        await clear();
+        setPages([createBlankPage()]);
+        setCurrentPageIndex(0);
+        loadPageData(createBlankPage());
       } finally {
         setIsLoading(false);
       }
     }
-    loadState();
+    loadPages();
   }, []);
 
-  // Save state to IndexedDB whenever relevant states change
+  // Save all pages to IndexedDB
   useEffect(() => {
     if (isLoading) return;
 
-    // State to save (excluding image data)
-    const stateToSave = {
-      bgType,
-      selectedBg,
-      selectedSticker,
-      selectedText,
-      selectedPhotoLayout,
-      activeLeftBar,
-      gridCount,
-      gridPositions,
-      layoutModeLeft,
-      layoutModeRight,
-      lastStableState,
-      selectedPartition,
-      showPageLayout,
-      skipAutoLayout,
-      placedImages,
-      history,
-      historyIndex,
-      lastSaved: new Date().toISOString(),
+    const savePages = async () => {
+      try {
+        const currentEditorState = {
+          placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg,
+          history, historyIndex, lastStableState, skipAutoLayout, canvasStickers
+        };
+        const updatedPages = pages.map((page, index) => index === currentPageIndex ? currentEditorState : page);
+        const stateToSave = { pages: updatedPages, currentPageIndex };
+        const sanitizedState = JSON.parse(JSON.stringify(stateToSave));
+        await set('photoAlbumPages', sanitizedState);
+      } catch (error) {
+        console.error("Error saving pages:", error);
+      }
     };
 
-    async function saveState() {
-      try {
-        const sanitizedState = JSON.parse(JSON.stringify(stateToSave));
-        await set('photoAlbumState', sanitizedState);
-        console.log('Album state saved successfully at:', sanitizedState.lastSaved);
-      } catch (error) {
-        console.error('Error saving album state:', error);
-      }
-    }
-    saveState();
-  }, [
-    bgType,
-    selectedBg,
-    selectedSticker,
-    selectedText,
-    selectedPhotoLayout,
-    activeLeftBar,
-    gridCount,
-    gridPositions,
-    layoutModeLeft,
-    layoutModeRight,
-    lastStableState,
-    selectedPartition,
-    showPageLayout,
-    isLoading,
-    skipAutoLayout,
-    placedImages,
-    history,
-    historyIndex,
-  ]);
+    savePages();
+  }, [pages, currentPageIndex, placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg, history, historyIndex, lastStableState, skipAutoLayout, canvasStickers, isLoading]);
 
-  const resetToDefaultState = () => {
-    setUploadedImages([]);
-    setBgType('plain');
-    setSelectedBg('#D81B60');
-    setSelectedSticker(null);
-    setSelectedText(null);
-    setSelectedPhotoLayout(null);
-    setActiveLeftBar("Frames");
-    setPlacedImages([]);
-    setGridCount({ left: 5, right: 5 });
-    setGridPositions([]);
-    setLayoutModeLeft(0);
-    setLayoutModeRight(0);
-    setHistory([
-      {
-        placedImages: [],
-        gridCount: { left: 5, right: 5 },
-        gridPositions: [],
-        layoutModeLeft: 0,
-        layoutModeRight: 0,
-        bgType: 'plain',
-        selectedBg: '#D81B60',
-        skipAutoLayout: false,
-      },
-    ]);
-    setHistoryIndex(0);
-    setLastStableState({ gridCount: { left: 5, right: 5 }, layoutModeLeft: 0, layoutModeRight: 0 });
-    setSelectedImageIndex(null);
-    setSelectedElement({ type: null, imageIndex: null, elementIndex: null });
-    setContextMenu({ visible: false, x: 0, y: 0, type: null, imageIndex: null, elementIndex: null });
-    setSelectedPartition('left');
-    setShowPageLayout(false);
-    setLoadedImages([]);
-    setSkipAutoLayout(false);
+  const loadPageData = (pageData) => {
+    setPlacedImages(pageData.placedImages || []);
+    setGridCount(pageData.gridCount || { left: 5, right: 5 });
+    setGridPositions(pageData.gridPositions || []);
+    setLayoutModeLeft(pageData.layoutModeLeft || 0);
+    setLayoutModeRight(pageData.layoutModeRight || 0);
+    setBgType(pageData.bgType || 'plain');
+    setSelectedBg(pageData.selectedBg || '#FFFFFF');
+    setHistory(pageData.history || []);
+    setHistoryIndex(pageData.historyIndex || -1);
+    setLastStableState(pageData.lastStableState || { gridCount: { left: 5, right: 5 }, layoutModeLeft: 0, layoutModeRight: 0 });
+    setSkipAutoLayout(pageData.skipAutoLayout || false);
+    setCanvasStickers(pageData.canvasStickers || []);
+  };
+
+  const handlePageChange = (newIndex) => {
+    if (newIndex === currentPageIndex) return;
+
+    const currentEditorState = {
+      placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg,
+      history, historyIndex, lastStableState, skipAutoLayout, canvasStickers
+    };
+
+    const updatedPages = pages.map((page, index) => index === currentPageIndex ? currentEditorState : page);
+    setPages(updatedPages);
+
+    setCurrentPageIndex(newIndex);
+    loadPageData(updatedPages[newIndex]);
+  };
+
+  const handleAddBlankPage = () => {
+    const currentEditorState = {
+      placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg,
+      history, historyIndex, lastStableState, skipAutoLayout, canvasStickers
+    };
+    const savedPages = pages.map((page, index) => index === currentPageIndex ? currentEditorState : page);
+    const newPage = createBlankPage();
+    const newPagesArray = [...savedPages, newPage];
+    const newPageIndex = newPagesArray.length - 1;
+
+    setPages(newPagesArray);
+    setCurrentPageIndex(newPageIndex);
+    loadPageData(newPage);
+  };
+
+  const handleDuplicatePage = () => {
+    const currentEditorState = {
+      placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg,
+      history, historyIndex, lastStableState, skipAutoLayout, canvasStickers
+    };
+    const savedPages = pages.map((page, index) => index === currentPageIndex ? currentEditorState : page);
+
+    const pageToDuplicate = savedPages[currentPageIndex];
+    const duplicatedPage = JSON.parse(JSON.stringify(pageToDuplicate));
+
+    const newPagesArray = [...savedPages, duplicatedPage];
+    const newPageIndex = newPagesArray.length - 1;
+
+    setPages(newPagesArray);
+    setCurrentPageIndex(newPageIndex);
+    loadPageData(duplicatedPage);
+  };
+
+  const handleRemovePage = () => {
+    if (pages.length <= 1) return; // Cannot remove the last page
+    const newPages = pages.filter((_, index) => index !== currentPageIndex);
+    setPages(newPages);
+    const newPageIndex = Math.max(0, currentPageIndex - 1);
+    setCurrentPageIndex(newPageIndex);
+    loadPageData(newPages[newPageIndex]);
   };
 
   const handleImageUpload = (event) => {
@@ -225,41 +200,13 @@ export default function PhotoAlbum() {
     });
   };
 
-  const handleStickerSelect = (sticker) => {
-    setSelectedSticker(sticker);
-  };
-
-  const handleTextSelect = (text) => {
-    setSelectedText(text);
-  };
-
-  const handleLayoutSelect = (layout) => {
-    setSelectedPhotoLayout(layout);
-  };
-
-  const onStickerPlaced = useCallback(() => {
-    setSelectedSticker(null);
-  }, []);
-
-  const onLayoutApplied = useCallback(() => {
-    setSelectedPhotoLayout(null);
-  }, []);
-
-  const [undoRedoCallbacks, setUndoRedoCallbacks] = useState({
-    onUndo: () => { },
-    onRedo: () => { },
-  });
-
-  const registerUndoRedoCallbacks = useCallback((callbacks) => {
-    setUndoRedoCallbacks(callbacks);
-  }, []);
+  const handleStickerSelect = (sticker) => setSelectedSticker(sticker);
+  const handleTextSelect = (text) => setSelectedText(text);
+  const handleLayoutSelect = (layout) => setSelectedPhotoLayout(layout);
 
   const handleSave = () => {
     const stage = stageRef.current;
-    if (!stage) {
-        console.error("Stage ref not available");
-        return;
-    }
+    if (!stage) return;
 
     const transformers = stage.find('Transformer');
     transformers.forEach(tr => tr.hide());
@@ -270,39 +217,12 @@ export default function PhotoAlbum() {
     transformers.forEach(tr => tr.show());
     stage.draw();
 
-    // Trigger download
     const link = document.createElement('a');
-    link.download = 'photo-album.png';
+    link.download = `photo-album-page-${currentPageIndex + 1}.png`;
     link.href = dataURL;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
-
-  const albumState = {
-    uploadedImages,
-    bgType,
-    selectedBg,
-    selectedSticker,
-    selectedText,
-    selectedPhotoLayout,
-    activeLeftBar,
-    placedImages,
-    gridCount,
-    gridPositions,
-    layoutModeLeft,
-    layoutModeRight,
-    history,
-    historyIndex,
-    lastStableState,
-    selectedImageIndex,
-    selectedElement,
-    contextMenu,
-    selectedPartition,
-    showPageLayout,
-    loadedImages,
-    skipAutoLayout,
-    canvasStickers,
   };
 
   if (isLoading) {
@@ -322,7 +242,6 @@ export default function PhotoAlbum() {
         onUndo={undoRedoCallbacks.onUndo}
         onRedo={undoRedoCallbacks.onRedo}
         onSave={handleSave}
-        albumState={albumState}
       />
       <div className='flex items-start justify-center'>
         <LeftSide activeLeftBar={activeLeftBar} setActiveLeftBar={setActiveLeftBar} />
@@ -390,7 +309,18 @@ export default function PhotoAlbum() {
           setCanvasStickers={setCanvasStickers}
         />
       </div>
-      <PageNavigation />
+      <PageNavigation 
+        currentPage={currentPageIndex}
+        totalPages={pages.length}
+        pages={pages.map((page, index) => index === currentPageIndex ? {
+          placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg,
+          history, historyIndex, lastStableState, skipAutoLayout, canvasStickers
+        } : page)}
+        onPageChange={handlePageChange}
+        onAddPage={handleAddBlankPage}
+        onDuplicatePage={handleDuplicatePage}
+        onRemovePage={handleRemovePage}
+      />
     </section>
   );
 }
