@@ -38,11 +38,11 @@ const PageNavigation = ({ currentPage, totalPages, pages, onPageChange, onAddPag
 
   const handleZoomChange = (level) => {
     setZoomLevel(level);
-    console.log("Zoom changed to:", level);
+
   };
-  console.log(pages)
+
   return (
-    <div className="w-full bg-white border-t border-gray-200 p-4">
+    <div className="w-full bg-white border-t border-gray-200 p-2">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
           <h3 className="text-sm font-semibold text-gray-700">One side</h3>
@@ -119,7 +119,7 @@ const PageNavigation = ({ currentPage, totalPages, pages, onPageChange, onAddPag
         {pages && pages.map((page, pageIndex) => (
           <div 
             key={pageIndex}
-            className={`flex-shrink-0 w-24 h-20 border rounded flex items-center justify-center cursor-pointer ${
+            className={`flex-shrink-0 w-24 h-16 border rounded flex items-center justify-center cursor-pointer ${
               currentPage === pageIndex ? 'border-2 border-blue-500' : 'border-gray-300'
             }`}
             onClick={() => onPageChange(pageIndex)}

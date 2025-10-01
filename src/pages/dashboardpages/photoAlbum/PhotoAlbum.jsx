@@ -35,6 +35,7 @@ export default function PhotoAlbum() {
   const [selectedText, setSelectedText] = useState(null);
   const [selectedPhotoLayout, setSelectedPhotoLayout] = useState(null);
   const [activeLeftBar, setActiveLeftBar] = useState("Frames");
+  const [showPageNavigation, setShowPageNavigation] = useState(false);
   const [placedImages, setPlacedImages] = useState(pages[currentPageIndex].placedImages);
   const [gridCount, setGridCount] = useState(pages[currentPageIndex].gridCount);
   const [gridPositions, setGridPositions] = useState(pages[currentPageIndex].gridPositions);
@@ -271,7 +272,7 @@ export default function PhotoAlbum() {
           onSave={handleSave}
         />
         <div className='flex items-start justify-center relative'>
-          <LeftSide activeLeftBar={activeLeftBar} setActiveLeftBar={setActiveLeftBar} />
+          <LeftSide activeLeftBar={activeLeftBar} setActiveLeftBar={setActiveLeftBar} setShowPageNavigation={setShowPageNavigation} />
           <MiddleSide
             uploadedImages={uploadedImages}
             handleImageUpload={handleImageUpload}
@@ -337,20 +338,22 @@ export default function PhotoAlbum() {
             setCanvasTexts={setCanvasTexts}
             onAddCanvasText={handleAddCanvasText}
           />
-          <div className="fixed bottom-0 w-full">
-            <PageNavigation 
-              currentPage={currentPageIndex}
-              totalPages={pages.length}
-              pages={pages.map((page, index) => index === currentPageIndex ? {
-                placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg,
-                history, historyIndex, lastStableState, skipAutoLayout, canvasStickers, canvasTexts
-              } : page)}
-              onPageChange={handlePageChange}
-              onAddPage={handleAddBlankPage}
-              onDuplicatePage={handleDuplicatePage}
-              onRemovePage={handleRemovePage}
-            />
-          </div>
+          {showPageNavigation && (
+            <div className="fixed bottom-0 w-full">
+              <PageNavigation 
+                currentPage={currentPageIndex}
+                totalPages={pages.length}
+                pages={pages.map((page, index) => index === currentPageIndex ? {
+                  placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg,
+                  history, historyIndex, lastStableState, skipAutoLayout, canvasStickers, canvasTexts
+                } : page)}
+                onPageChange={handlePageChange}
+                onAddPage={handleAddBlankPage}
+                onDuplicatePage={handleDuplicatePage}
+                onRemovePage={handleRemovePage}
+              />
+            </div>
+          )}
         </div>
       </section>
     </>

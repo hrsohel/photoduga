@@ -27,7 +27,7 @@ const EditProfile = () => {
 
   const handleSaveChanges = () => {
     // Handle save logic here
-    console.log("Saving changes:", formData);
+
     alert("Changes saved successfully!");
   };
 

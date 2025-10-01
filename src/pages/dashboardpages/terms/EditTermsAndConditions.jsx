@@ -30,7 +30,7 @@ const EditTermsAndConditions = () => {
   const [fontSize, setFontSize] = useState("16");
 
   const handleSaveChanges = () => {
-    console.log("Saving Terms and Conditions:", content);
+
     alert("Terms and Conditions saved successfully!");
   };
 

@@ -218,7 +218,7 @@ export default function RightSide({
       setCanvasTexts(prevState.canvasTexts || []);
       
       setHistoryIndex(prevIndex);
-      console.log('Undo performed');
+
     }
   };
 
@@ -251,7 +251,7 @@ export default function RightSide({
       setCanvasTexts(nextState.canvasTexts || []);
       
       setHistoryIndex(nextIndex);
-      console.log('Redo performed');
+
     }
   };
 

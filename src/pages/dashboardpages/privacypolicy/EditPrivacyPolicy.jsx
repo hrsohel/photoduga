@@ -30,7 +30,7 @@ const EditPrivacyPolicy = () => {
   const [fontSize, setFontSize] = useState("16");
 
   const handleSaveChanges = () => {
-    console.log("Saving Privacy Policy content:", content);
+
     alert("Privacy Policy content saved successfully!");
   };
 

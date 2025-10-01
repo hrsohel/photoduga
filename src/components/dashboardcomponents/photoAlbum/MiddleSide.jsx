@@ -8,7 +8,7 @@ import Pictures from './Pictures';
 
 export default function MiddleSide({ uploadedImages, handleImageUpload, activeLeftBar, bgType, setBgType, selectedBg, setSelectedBg, onSelectSticker, onSelectLayout }) {
   const showComponent = {
-    "Frames": () => <Frames uploadedImages={uploadedImages} handleImageUpload={handleImageUpload} />,
+    "Frames": () => <Pictures uploadedImages={uploadedImages} handleImageUpload={handleImageUpload} />,
     "Stickers": () => <StickerComponent onSelectSticker={onSelectSticker} />,
     "Backgrounds": () => <Background 
       uploadedImages={uploadedImages} 
@@ -19,7 +19,7 @@ export default function MiddleSide({ uploadedImages, handleImageUpload, activeLe
       setSelectedBg={setSelectedBg}
     />,
     "Photo Layouts": () => <PhotoLayouts onSelectLayout={onSelectLayout} />, // Changed to onSelectLayout
-    "Pictures": () => <Pictures />,
+    "Pictures": () => <Frames uploadedImages={uploadedImages} handleImageUpload={handleImageUpload} />,
   };
 
   return (

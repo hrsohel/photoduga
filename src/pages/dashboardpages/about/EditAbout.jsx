@@ -32,7 +32,7 @@ Lorem ipsum dolor sit amet consectetur. Fringilla a cras vitae orci. Egestas dui
   const [fontSize, setFontSize] = useState("16");
 
   const handleSaveChanges = () => {
-    console.log("Saving content:", content);
+
     alert("Content saved successfully!");
   };
 
