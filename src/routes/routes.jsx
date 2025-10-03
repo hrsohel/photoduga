@@ -26,6 +26,7 @@ import EditProfile from "@/pages/dashboardpages/adminProfile/EditProfile";
 import RevenueReports from "@/pages/dashboardpages/revenueReports/RevenueReports";
 import { ChangePassword } from "@/pages/auth/ChangePassword";
 import PhotoAlbum from "@/pages/dashboardpages/photoAlbum/PhotoAlbum";
+import Calendar from "@/pages/dashboardpages/calendar/Calendar";
 
 // Admin Account
 // import AdminAccount from "../pages/dashboardpages/admin/AdminAccount";
@@ -85,6 +86,7 @@ const routes = createBrowserRouter([
       { path: "admin-account/change-password", element: <ChangePassword /> },
 
       { path: "categories/photo-album", element: <PhotoAlbum /> },
+      { path: "categories/calendars", element: <Calendar /> },
       // { path: "categories/gifts", element: <Gifts /> },
       // { path: "categories/photo-prints", element: <PhotoPrints /> },
       // { path: "categories/canvas", element: <Canvas /> },
