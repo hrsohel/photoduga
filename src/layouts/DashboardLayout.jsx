@@ -5,19 +5,19 @@ import { Outlet, useLocation } from "react-router-dom"; // Import Outlet
 
 export default function DashboardLayout() {
   const { pathname } = useLocation()
-  console.log(pathname !== "/dashboard/categories/calendars")
+  console.log(pathname)
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Desktop Sidebar - শুধুমাত্র desktop এ দেখাবে */}
       {
-        pathname !== "/dashboard/categories/photo-album" ? <DashboardSidebar /> : <></>
+        pathname !== "/dashboard/categories/photo-album" && pathname !== "/dashboard/categories/calendars" ? <DashboardSidebar /> : <></>
       }
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header - এতে MobileSidebar আছে mobile এর জন্য */}
         {
-          pathname !== "/dashboard/categories/photo-album" || pathname !== "/dashboard/categories/calendars" ? <DashboardHeader /> : <></>
+          pathname !== "/dashboard/categories/photo-album" && pathname !== "/dashboard/categories/calendars" ? <DashboardHeader /> : <></>
         }
 
 

@@ -10,6 +10,7 @@ import { openDB } from 'idb';
 import TextEditingTools from '@/components/dashboardcomponents/photoAlbum/TextEditingTools';
 import LayoutSelector from '@/components/dashboardcomponents/calendar/LayoutSelector';
 import CalendarTools from '@/components/dashboardcomponents/calendar/CalendarTools';
+import AlbunMenuBar from '@/components/dashboardcomponents/photoAlbum/AlbunMenuBar';
 
 const dbPromise = openDB('calendar-db', 1, {
   upgrade(db) {
@@ -85,14 +86,15 @@ const Calendar = () => {
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="flex flex-col h-screen">
-        <PhotoAlbumToolbar />
-        <div className="flex flex-1 overflow-hidden">
+        {/* <PhotoAlbumToolbar /> */}
+        <AlbunMenuBar />
+        <div className="flex flex-1 overflow-hidden h-full">
           <CalendarLeftSide 
             onSelect={(tool) => setActiveLeftBar(tool)} 
             onTextSelect={handleTextSelect}
             onLayoutSelect={handleLayoutSelect}
           />
-          <div className="w-48 bg-white p-4 overflow-y-auto">
+          <div className="w-[100px] bg-white p-4 h-screen -mt-8">
             <CalendarTools 
               uploadedImages={uploadedImages}
               handleImageUpload={handleImageUpload}
