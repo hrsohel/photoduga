@@ -17,7 +17,7 @@ export default function CalendarTools({ uploadedImages, handleImageUpload, activ
       setBgType={setBgType} 
       setSelectedBg={setSelectedBg}
     />,
-    "Layouts": () => <LayoutSelector onSelectLayout={onSelectLayout} />,
+    "Layouts": () => <LayoutSelector onSelect={onSelectLayout} />,
     "Pictures": () => <CalendarFrames uploadedImages={uploadedImages} handleImageUpload={handleImageUpload} />,
   };
 

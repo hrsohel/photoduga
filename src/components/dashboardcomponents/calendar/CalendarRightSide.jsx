@@ -1,190 +1,299 @@
-
-import React, { useRef, useState } from 'react';
-import { useDrop, useDrag } from 'react-dnd';
-import { ItemTypes } from '@/components/dashboardcomponents/photoAlbum/ItemTypes';
-import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import html2canvas from 'html2canvas';
+import React, { useState, useRef, useEffect } from 'react';
+import { Stage, Layer, Rect, Transformer, Image, Group, Text } from 'react-konva';
+import useImage from 'use-image';
 import { nanoid } from 'nanoid';
 
-const DraggableText = ({ id, text, left, top, onMove, onEnd, onDoubleClick }) => {
-  const ref = useRef(null);
-  const [, drag] = useDrag({
-    type: ItemTypes.TEXT,
-    item: { id, left, top, text, type: ItemTypes.TEXT },
-    end: (item, monitor) => {
-      const delta = monitor.getDifferenceFromInitialOffset();
-      if (delta) {
-        const newLeft = Math.round(item.left + delta.x);
-        const newTop = Math.round(item.top + delta.y);
-        onEnd(id, newLeft, newTop);
-      }
-    },
-  });
+const Sticker = ({ stickerProps, isSelected, onSelect, onChange }) => {
+  const shapeRef = useRef();
+  const trRef = useRef();
 
-  drag(ref);
+  useEffect(() => {
+    console.log("Sticker useEffect: isSelected", isSelected);
+    console.log("Sticker useEffect: shapeRef.current", shapeRef.current);
+    if (isSelected) {
+      trRef.current.nodes([shapeRef.current]);
+      trRef.current.getLayer().batchDraw();
+    }
+  }, [isSelected]);
 
   return (
-    <div
-      ref={ref}
-      style={{ left, top, position: 'absolute', cursor: 'move' }}
-      onDoubleClick={() => onDoubleClick(id, text)}
-    >
-      {text}
-    </div>
+    <>
+      <Text
+        ref={shapeRef}
+        text={stickerProps.text}
+        x={stickerProps.x}
+        y={stickerProps.y}
+        fontSize={stickerProps.fontSize}
+        draggable
+        onClick={onSelect}
+        onTap={onSelect}
+        onDragEnd={(e) => {
+          onChange({
+            ...stickerProps,
+            x: e.target.x(),
+            y: e.target.y(),
+          });
+        }}
+        onDragStart={(e) => {
+          e.cancelBubble = true;
+        }}
+        onTransformEnd={(e) => {
+          const node = shapeRef.current;
+          const scaleX = node.scaleX();
+          const scaleY = node.scaleY();
+          node.scaleX(1);
+          node.scaleY(1);
+          onChange({
+            ...stickerProps,
+            x: node.x(),
+            y: node.y(),
+            fontSize: stickerProps.fontSize * scaleX, // Scale font size
+          });
+        }}
+      />
+      {isSelected && (
+        <Transformer
+          ref={trRef}
+          boundBoxFunc={(oldBox, newBox) => {
+            if (newBox.width < 5 || newBox.height < 5) {
+              return oldBox;
+            }
+            return newBox;
+          }}
+        />
+      )}
+    </>
   );
 };
 
-const CalendarRightSide = ({ currentPage, pages, setPages, addText }) => {
-  const calendarRef = useRef();
-  const [editingText, setEditingText] = useState(null);
+const GridRect = ({ shapeProps, isSelected, onSelect, onChange, onStickerChange, selectedElement, setSelectedElement }) => {
+  const shapeRef = useRef();
+  const trRef = useRef();
+  const [img] = useImage(shapeProps.image, 'Anonymous');
 
-  const [, drop] = useDrop(() => ({ 
-    accept: [ItemTypes.IMAGE, ItemTypes.TEXT],
-    drop: (item, monitor) => {
-      if (item.type === ItemTypes.TEXT) {
-        const delta = monitor.getDifferenceFromInitialOffset();
-        const newLeft = Math.round(item.left + delta.x);
-        const newTop = Math.round(item.top + delta.y);
-        moveText(item.id, newLeft, newTop);
-      }
+  useEffect(() => {
+    if (isSelected) {
+      // we need to attach transformer manually
+      trRef.current.nodes([shapeRef.current]);
+      trRef.current.getLayer().batchDraw();
     }
-  }));
+  }, [isSelected]);
 
-  const moveText = (id, left, top) => {
-    const newPages = pages.map((p) => {
-      if (p.id === currentPage.id) {
-        const newElements = p.elements.map((el) => {
-          if (el.id === id) {
-            return { ...el, left, top };
-          }
-          return el;
+  return (
+    <Group
+      onClick={(e) => {
+        onSelect();
+        setSelectedElement({ type: 'grid', id: shapeProps.id });
+      }}
+      onTap={(e) => {
+        onSelect();
+        setSelectedElement({ type: 'grid', id: shapeProps.id });
+      }}
+      onDragEnd={(e) => {
+        onChange({
+          ...shapeProps,
+          x: e.target.x(),
+          y: e.target.y(),
         });
-        return { ...p, elements: newElements };
-      }
-      return p;
-    });
-    setPages(newPages);
-  };
-
-  const handleAddText = () => {
-    const newText = {
-      id: nanoid(),
-      type: 'text',
-      text: 'New Text',
-      left: 50,
-      top: 50,
-    };
-    const newPages = pages.map((p) => {
-      if (p.id === currentPage.id) {
-        return { ...p, elements: [...p.elements, newText] };
-      }
-      return p;
-    });
-    setPages(newPages);
-  };
-
-  const handleDoubleClick = (id, text) => {
-    setEditingText({ id, text });
-  };
-
-  const handleTextChange = (e) => {
-    setEditingText({ ...editingText, text: e.target.value });
-  };
-
-  const handleSaveText = () => {
-    const newPages = pages.map((p) => {
-      if (p.id === currentPage.id) {
-        const newElements = p.elements.map((el) => {
-          if (el.id === editingText.id) {
-            return { ...el, text: editingText.text };
-          }
-          return el;
+      }}
+      onTransformEnd={(e) => {
+        const node = shapeRef.current;
+        const scaleX = node.scaleX();
+        const scaleY = node.scaleY();
+        node.scaleX(1);
+        node.scaleY(1);
+        onChange({
+          ...shapeProps,
+          x: node.x(),
+          y: node.y(),
+          width: Math.max(5, node.width() * scaleX),
+          height: Math.max(5, node.height() * scaleY),
         });
-        return { ...p, elements: newElements };
-      }
-      return p;
-    });
-    setPages(newPages);
-    setEditingText(null);
-  };
+      }}
+      x={shapeProps.x}
+      y={shapeProps.y}
+      draggable
+    >
+      <Rect
+        ref={shapeRef}
+        x={0}
+        y={0}
+        width={shapeProps.width}
+        height={shapeProps.height}
+        fill={shapeProps.image ? 'transparent' : 'rgba(240, 240, 240, 0.5)'}
+        stroke="black"
+        strokeWidth={2}
+      />
+      {img && (
+        <Image
+            image={img}
+            x={0}
+            y={0}
+            width={shapeProps.width}
+            height={shapeProps.height}
+            />
+      )}
+      {shapeProps.stickers && shapeProps.stickers.map((sticker, i) => (
+        <Sticker
+          key={sticker.id}
+          stickerProps={sticker}
+          isSelected={selectedElement && selectedElement.type === 'sticker' && selectedElement.id === sticker.id}
+          onSelect={() => setSelectedElement({ type: 'sticker', id: sticker.id, gridId: shapeProps.id })}
+          onChange={(newAttrs) => onStickerChange(shapeProps.id, sticker.id, newAttrs)}
+        />
+      ))}
+      {isSelected && (
+        <Transformer
+          ref={trRef}
+          boundBoxFunc={(oldBox, newBox) => {
+            if (newBox.width < 5 || newBox.height < 5) {
+              return oldBox;
+            }
+            return newBox;
+          }}
+        />
+      )}
+    </Group>
+  );
+};
 
-  const handleDateClick = (date) => {
-    const newPages = pages.map((p) => {
-      if (p.id === currentPage.id) {
-        const selectedDates = p.selectedDates || [];
-        const dateIndex = selectedDates.findIndex(
-          (d) => d.getTime() === date.getTime()
-        );
-        if (dateIndex > -1) {
-          return {
-            ...p,
-            selectedDates: selectedDates.filter((_, i) => i !== dateIndex),
+const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSticker }) => {
+  const stageRef = useRef();
+  const [grids, setGrids] = useState([{ x: 50, y: 50, width: 300, height: 200, id: "0", stickers: [] }]);
+  const [selectedElement, setSelectedElement] = useState({ type: null, id: null, gridId: null });
+
+  const gridTransformerRef = useRef();
+  const stickerTransformerRef = useRef();
+
+  useEffect(() => {
+    if (selectedElement.type === 'grid' && selectedElement.id !== null) {
+      const node = stageRef.current.findOne('#' + selectedElement.id);
+      if (node && gridTransformerRef.current) {
+        gridTransformerRef.current.nodes([node]);
+        gridTransformerRef.current.getLayer().batchDraw();
+      }
+    } else if (selectedElement.type === 'sticker' && selectedElement.id !== null && selectedElement.gridId !== null) {
+      const gridNode = stageRef.current.findOne('#' + selectedElement.gridId);
+      const stickerNode = gridNode?.findOne('#' + selectedElement.id);
+      if (stickerNode && stickerTransformerRef.current) {
+        stickerTransformerRef.current.nodes([stickerNode]);
+        stickerTransformerRef.current.getLayer().batchDraw();
+      }
+    } else {
+      if (gridTransformerRef.current) gridTransformerRef.current.nodes([]);
+      if (stickerTransformerRef.current) stickerTransformerRef.current.nodes([]);
+    }
+  }, [selectedElement]);
+
+  useEffect(() => {
+    if (selectedSticker && selectedElement.type === 'grid' && selectedElement.id !== null) {
+      const newGrids = grids.map((grid) => {
+        if (grid.id === selectedElement.id) {
+          const newSticker = {
+            id: nanoid(), // Generate unique ID for sticker
+            text: selectedSticker,
+            x: grid.width / 2 - 15, // Center sticker initially
+            y: grid.height / 2 - 15,
+            fontSize: 30,
           };
-        } else {
-          return { ...p, selectedDates: [...selectedDates, date] };
+          return { ...grid, stickers: [...grid.stickers, newSticker] };
         }
-      }
-      return p;
-    });
-    setPages(newPages);
+        return grid;
+      });
+      setGrids(newGrids);
+      setSelectedSticker(null); // Clear selected sticker after placing
+    }
+  }, [selectedSticker, selectedElement, grids, setSelectedSticker]);
+
+  const style = {
+    backgroundColor: bgType === 'plain' ? selectedBg : 'transparent',
+    backgroundImage: bgType === 'image' ? `url(${selectedBg})` : 'none',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
   };
 
-  const handleSave = () => {
-    if (calendarRef.current) {
-      html2canvas(calendarRef.current).then((canvas) => {
-        const link = document.createElement('a');
-        link.download = 'calendar.png';
-        link.href = canvas.toDataURL();
-        link.click();
-      });
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const imageUrl = e.dataTransfer.getData('imageUrl');
+    const stage = stageRef.current;
+    
+    // Calculate pointer position relative to the stage container
+    const containerRect = stage.container().getBoundingClientRect();
+    const point = {
+      x: e.clientX - containerRect.left,
+      y: e.clientY - containerRect.top,
+    };
+
+    const targetGrid = grids.find(
+        (grid) => 
+        point.x > grid.x &&
+        point.x < grid.x + grid.width &&
+        point.y > grid.y &&
+        point.y < grid.y + grid.height
+    );
+
+    if (targetGrid) {
+        const newGrids = grids.map((grid) => {
+            if (grid.id === targetGrid.id) {
+                return {
+                    ...grid,
+                    image: imageUrl,
+                };
+            }
+            return grid;
+        });
+        setGrids(newGrids);
     }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleStickerChange = (gridId, stickerId, newAttrs) => {
+    const newGrids = grids.map((grid) => {
+      if (grid.id === gridId) {
+        const updatedStickers = grid.stickers.map((sticker) => 
+          sticker.id === stickerId ? { ...sticker, ...newAttrs } : sticker
+        );
+        return { ...grid, stickers: updatedStickers };
+      }
+      return grid;
+    });
+    setGrids(newGrids);
   };
 
   return (
-    <div className="w-[400px] h-[600px] bg-white shadow-lg relative" ref={drop}>
-        <div ref={calendarRef} className='w-full h-full'>
-      {currentPage.layout.type === 'cover' ? (
-        <div className="w-full h-full flex flex-col items-center justify-center">
-          <div className="w-full h-3/4 bg-gray-200"></div>
-          <h1 className="text-4xl font-bold mt-4">{currentPage.layout.text}</h1>
-        </div>
-      ) : (
-        <div className="w-full h-full flex flex-col">
-          <div className={`grid grid-cols-${currentPage.layout.cols} grid-rows-${currentPage.layout.rows} gap-2 p-2 flex-1`}>
-            {currentPage.layout.grid.map((cell, index) => (
-              <div key={index} className="bg-gray-200 w-full h-full"></div>
-            ))}
-          </div>
-          <div className="p-2">
-            <Calendar
-              selected={currentPage.selectedDates}
-              onDayClick={handleDateClick}
-            />
-          </div>
-        </div>
-      )}
-      {currentPage.elements.map((el) => {
-        if (el.type === 'text') {
-          return <DraggableText key={el.id} {...el} onMove={moveText} onEnd={moveText} onDoubleClick={handleDoubleClick} />;
-        }
-        return null;
-      })}
-      </div>
-      {editingText && (
-        <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-4 rounded-lg">
-            <input type="text" value={editingText.text} onChange={handleTextChange} />
-            <Button onClick={handleSaveText}>Save</Button>
-          </div>
-        </div>
-      )}
-      <div className="absolute bottom-4 right-4">
-        <Button onClick={handleSave}>Save as PNG</Button>
-      </div>
-      <div className="absolute top-4 right-4">
-        <Button onClick={handleAddText}>Add Text</Button>
-      </div>
+    <div className="w-[400px] h-[700px] shadow-lg sticky top-0" style={style} onDrop={handleDrop} onDragOver={handleDragOver}>
+      <Stage width={400} height={700} ref={stageRef}>
+        <Layer>
+          {grids.map((grid, i) => {
+            return (
+              <GridRect
+                key={grid.id}
+                shapeProps={grid}
+                isSelected={selectedElement && selectedElement.type === 'grid' && selectedElement.id === grid.id}
+                onSelect={() => {
+                  setSelectedElement({ type: 'grid', id: grid.id });
+                }}
+                onChange={(newAttrs) => {
+                  const rects = grids.slice();
+                  const index = rects.findIndex(r => r.id === newAttrs.id);
+                  if (index !== -1) {
+                    rects[index] = newAttrs;
+                    setGrids(rects);
+                  }
+                }}
+                onStickerChange={handleStickerChange}
+                selectedElement={selectedElement}
+                setSelectedElement={setSelectedElement}
+              />
+            );
+          })}
+          <Transformer ref={gridTransformerRef} keepRatio={false} />
+          <Transformer ref={stickerTransformerRef} keepRatio={false} enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right', 'top-center', 'bottom-center']} />
+        </Layer>
+      </Stage>
     </div>
   );
 };

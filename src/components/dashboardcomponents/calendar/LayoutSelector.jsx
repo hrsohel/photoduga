@@ -119,7 +119,11 @@ const LayoutSelector = ({ onSelect }) => {
 
   const handleLayoutClick = (layout) => {
     setSelectedLayoutId(layout.name);
-    onSelect(layout);
+    if (onSelect) {
+      onSelect(layout);
+    } else {
+      // console.error("LayoutSelector: onSelect is not a function!"); // Keep this for potential future debugging if needed
+    }
   };
 
   return (

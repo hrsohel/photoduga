@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import CalendarLeftSide from '@/components/dashboardcomponents/calendar/CalendarLeftSide';
 import CalendarMiddleSide from '@/components/dashboardcomponents/calendar/CalendarMiddleSide';
@@ -27,6 +26,7 @@ const Calendar = () => {
   const [uploadedImages, setUploadedImages] = useState([]);
   const [bgType, setBgType] = useState('plain');
   const [selectedBg, setSelectedBg] = useState('#FFFFFF');
+  const [selectedSticker, setSelectedSticker] = useState(null);
 
   useEffect(() => {
     const loadState = async () => {
@@ -69,6 +69,10 @@ const Calendar = () => {
     setCurrentPage(newPages.find(p => p.id === currentPage.id));
   };
 
+  const handleSelectSticker = (sticker) => {
+    setSelectedSticker(sticker);
+  };
+
   const handleImageUpload = (event) => {
     const files = Array.from(event.target.files);
     const newImagesPromises = files.map((file) => {
@@ -104,6 +108,7 @@ const Calendar = () => {
               selectedBg={selectedBg}
               setSelectedBg={setSelectedBg}
               onSelectLayout={handleLayoutChange}
+              onSelectSticker={handleSelectSticker}
             />
             {showLayoutSelector && <LayoutSelector onSelect={handleLayoutChange} />}
           </div>
@@ -112,6 +117,11 @@ const Calendar = () => {
             setPages={setPages}
             currentPage={currentPage}
             setCurrentPage={setCurrentPage}
+            selectedBg={selectedBg}
+            bgType={bgType}
+            layout={[{ x: 50, y: 50, width: 300, height: 200, id: "0" }]}
+            selectedSticker={selectedSticker}
+            setSelectedSticker={setSelectedSticker}
           />
         </div>
       </div>
