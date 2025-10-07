@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import PhotoLayoutModal from "./PhotoLayoutModal";
 
-const CalendarRightToolbar = ({ onLayoutChange }) => {
-  const onAddCanvasText = () => {
-    // TODO: Implement text adding functionality
-    console.log('Add text');
-  };
-
-  const handlePhotoLayoutClick = () => {
-    // This button will not display grid layouts
-    console.log('Photo Layout button clicked');
-  };
+const CalendarRightToolbar = ({ onAddCanvasText, onAddGrid, onRemoveGrid, onShuffleGrids }) => {
 
   return (
     <div className="w-[100px] h-full p-4 space-y-4 bg-gray-100">
@@ -19,16 +19,33 @@ const CalendarRightToolbar = ({ onLayoutChange }) => {
         </svg>
         <p className="font-semibold text-[8px] font-sans text-[#727273]">Text</p>
       </div>
-      <div onClick={handlePhotoLayoutClick} className="border-[1px] p-[10px] rounded-[2px] border-[#E0E0E0] cursor-pointer w-[40px] relative">
-        <div className="flex items-center justify-center flex-col">
-          <div className="flex items-center justify-center flex-col">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M1.6001 1.59961H5.6001V10.3996H1.6001V1.59961ZM6.4001 1.59961H10.4001V5.59961H6.4001V1.59961ZM11.2001 1.59961H14.4001V14.3996H11.2001V1.59961ZM6.4001 6.39961H10.4001V10.3996H6.4001V6.39961ZM1.6001 11.1996H10.4001V14.3996H1.6001V11.1996Z" fill="#A8C3A0" />
-            </svg>
-            <p className="font-semibold text-[8px] font-sans text-[#727273] text-center">Photo Layout</p>
+      <Dialog>
+        <DialogTrigger asChild>
+          <div className="border-[1px] p-[10px] rounded-[2px] border-[#E0E0E0] cursor-pointer w-[40px] relative">
+            <div className="flex items-center justify-center flex-col">
+              <div className="flex items-center justify-center flex-col">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M1.6001 1.59961H5.6001V10.3996H1.6001V1.59961ZM6.4001 1.59961H10.4001V5.59961H6.4001V1.59961ZM11.2001 1.59961H14.4001V14.3996H11.2001V1.59961ZM6.4001 6.39961H10.4001V10.3996H6.4001V6.39961ZM1.6001 11.1996H10.4001V14.3996H1.6001V11.1996Z" fill="#A8C3A0" />
+                </svg>
+                <p className="font-semibold text-[8px] font-sans text-[#727273] text-center">Photo Layout</p>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Photo Layout Options</DialogTitle>
+            <DialogDescription>
+              Add, remove, or shuffle photo grids.
+            </DialogDescription>
+          </DialogHeader>
+          <PhotoLayoutModal 
+            onAddGrid={onAddGrid}
+            onRemoveGrid={onRemoveGrid}
+            onShuffleGrids={onShuffleGrids}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
