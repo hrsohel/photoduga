@@ -1,4 +1,4 @@
-import AlbunMenuBar from '@/components/dashboardcomponents/photoAlbum/AlbunMenuBar';
+import AlbumMenuBar from '@/components/dashboardcomponents/photoAlbum/AlbumMenuBar';
 import LeftSide from '@/components/dashboardcomponents/photoAlbum/LeftSide';
 import MiddleSide from '@/components/dashboardcomponents/photoAlbum/MiddleSide';
 import PageNavigation from '@/components/dashboardcomponents/photoAlbum/PageNavigation';
@@ -266,10 +266,10 @@ export default function PhotoAlbum() {
   return (
     <>
       <section className='bg-[#F0F1F5] p-0'>
-        <AlbunMenuBar
+        <AlbumMenuBar
           onUndo={undoRedoCallbacks.onUndo}
           onRedo={undoRedoCallbacks.onRedo}
-          onSave={handleSave}
+          onDownload={handleSave}
         />
         <div className='flex items-start justify-center relative'>
           <LeftSide activeLeftBar={activeLeftBar} setActiveLeftBar={setActiveLeftBar} setShowPageNavigation={setShowPageNavigation} />

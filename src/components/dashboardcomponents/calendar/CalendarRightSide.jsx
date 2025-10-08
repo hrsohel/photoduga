@@ -125,60 +125,8 @@ const GridRect = ({ shapeProps, isSelected, onSelect, onChange }) => {
   );
 };
 
-const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSticker, isAddingText, setIsAddingText, gridLayout, calendarContainerRef }) => {
+const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSticker, isAddingText, setIsAddingText, gridLayout, calendarContainerRef, layout, onUpdateLayout, stickers, setStickers, texts, setTexts, selectedId, selectShape, currentMonthIndex }) => {
   console.log('CalendarRightSide: gridLayout at component start', gridLayout);
-  const stageRef = useRef();
-  const [grids, setGrids] = useState(() => {
-    if (Array.isArray(gridLayout)) {
-      return gridLayout;
-    }
-    return [{ x: 50, y: 50, width: 300, height: 200, id: 'grid-0' }];
-  });
-  const [stickers, setStickers] = useState([]);
-  const [texts, setTexts] = useState([]);
-  const [selectedId, selectShape] = useState(null);
-
-  useEffect(() => {
-    console.log('CalendarRightSide: gridLayout inside useEffect', gridLayout);
-    if (Array.isArray(gridLayout)) {
-      setGrids(gridLayout);
-    }
-  }, [gridLayout]);
-
-  useEffect(() => {
-    if (selectedSticker) {
-      const newSticker = {
-        id: 'sticker-' + nanoid(),
-        text: selectedSticker,
-        x: 100,
-        y: 100,
-        fontSize: 50,
-      };
-      setStickers([...stickers, newSticker]);
-      if (setSelectedSticker) {
-        setSelectedSticker(null);
-      }
-    }
-  }, [selectedSticker, setSelectedSticker, stickers]);
-
-  useEffect(() => {
-    if (isAddingText) {
-        const newText = {
-            id: 'text-' + nanoid(),
-            text: 'Double click to edit',
-            x: 150,
-            y: 150,
-            fontSize: 20,
-            fontFamily: 'Arial',
-            fill: 'black',
-            width: 150,
-            height: 30,
-            align: 'left',
-          };
-          setTexts([...texts, newText]);
-          setIsAddingText(false);
-    }
-  }, [isAddingText, setIsAddingText, texts]);
 
   const generateMonthDates = (year, month) => {
     const dates = [];
@@ -198,8 +146,8 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
   };
 
   const currentYear = 2025; 
-  const currentMonth = 9; 
-  const monthDates = generateMonthDates(currentYear, currentMonth);
+  const monthDates = generateMonthDates(currentYear, currentMonthIndex);
+  const monthName = new Date(currentYear, currentMonthIndex).toLocaleString('default', { month: 'long' });
 
   const selectedText = texts.find(text => text.id === selectedId && text.id.startsWith('text-'));
 
@@ -277,7 +225,7 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
       }
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
-      if (isSafari || isFirefox) {
+      if (isFirefox) {
         newWidth = Math.ceil(newWidth);
       }
 
@@ -336,15 +284,15 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
   const handleDrop = (e) => {
     e.preventDefault();
     const imageUrl = e.dataTransfer.getData('imageUrl');
-    const stage = stageRef.current;
+    const stage = calendarContainerRef.current;
     
-    const containerRect = stage.container().getBoundingClientRect();
+    const containerRect = e.currentTarget.getBoundingClientRect();
     const point = {
       x: e.clientX - containerRect.left,
       y: e.clientY - containerRect.top,
     };
 
-    const targetGrid = grids.find(
+    const targetGrid = layout.find(
         (grid) => 
         point.x > grid.x &&
         point.x < grid.x + grid.width &&
@@ -353,7 +301,7 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
     );
 
     if (targetGrid) {
-        const newGrids = grids.map((grid) => {
+        const newLayout = layout.map((grid) => {
             if (grid.id === targetGrid.id) {
                 return {
                     ...grid,
@@ -362,7 +310,7 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
             }
             return grid;
         });
-        setGrids(newGrids);
+        onUpdateLayout(newLayout);
     }
   };
 
@@ -391,17 +339,25 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
     };
   }, [selectedId, stickers, texts]);
 
-  return (
-    <div ref={calendarContainerRef} className="w-[400px] h-[750px] shadow-lg sticky top-0" style={style} onDrop={handleDrop} onDragOver={handleDragOver}>
+  const [bgImage] = useImage(bgType === 'image' ? selectedBg : null, 'anonymous');
 
-      <Stage width={400} height={700} ref={stageRef} onMouseDown={(e) => { 
+  return (
+    <div className="w-[400px] h-[750px] shadow-lg sticky top-0" onDrop={handleDrop} onDragOver={handleDragOver}>
+      <Stage 
+        width={400} 
+        height={750} 
+        ref={calendarContainerRef} 
+        onMouseDown={(e) => { 
           const clickedOnEmpty = e.target === e.target.getStage();
           if (clickedOnEmpty) {
             selectShape(null);
           }
-        }}>
+        }}
+      >
         <Layer>
-          {grids.map((grid, i) => {
+          {bgType === 'image' && bgImage && <Image image={bgImage} width={400} height={750} />}
+          {bgType === 'plain' && <Rect width={400} height={750} fill={selectedBg} />}
+          {layout.map((grid, i) => {
             return (
               <GridRect
                 key={i}
@@ -411,9 +367,9 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
                   selectShape(grid.id);
                 }}
                 onChange={(newAttrs) => {
-                  const rects = grids.slice();
-                  rects[i] = newAttrs;
-                  setGrids(rects);
+                  const newLayout = layout.slice();
+                  newLayout[i] = newAttrs;
+                  onUpdateLayout(newLayout);
                 }}
               />
             );
@@ -453,58 +409,59 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
               />
             );
           })}
-                            </Layer>
-                        </Stage>
-
-                              {selectedText && stageRef.current && (
-                                <div
-                                  className="absolute"
-                                  style={{
-                                    top: `${stageRef.current.container().getBoundingClientRect().top + selectedText.y + selectedText.height + 10}px`,
-                                    left: `50%`,
-                                    transform: 'translateX(-50%)',
-                                    zIndex: 100,
-                                  }}
-                                >
-                                  <TextEditingTools
-                                    selectedText={selectedText}
-                                    onUpdateText={handleUpdateText}
-                                  />
-                                </div>
-                              )}                  
-      <div className="calendar-display mt-4 p-2 absolute bottom-0 left-1/2 -translate-x-1/2 w-[250px] bg-white/50">
-        <h3 className="text-lg font-semibold text-center mb-2">October 2025</h3>
-        <div className="grid grid-cols-7 gap-0 text-center font-bold text-xs mb-1">
-          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-            <div
-              key={index}
-              className={`w-8 h-8 flex items-center justify-center ${index === 0 ? 'text-red-500' : index === 5 ? 'text-green-500' : 'text-black'}`}
-            >
-              {day}
-            </div>
-          ))}
+        </Layer>
+        <Layer>
+          <Group x={75} y={500}>
+            <Rect width={250} height={200} fill="rgba(255, 255, 255, 0.5)" />
+            <Text text={`${monthName} ${currentYear}`} fontSize={18} fontStyle="bold" align="center" width={250} y={10} />
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+              <Text 
+                key={index} 
+                text={day} 
+                x={index * 35 + 5} 
+                y={40} 
+                width={35} 
+                align="center" 
+                fontStyle="bold" 
+                fill={index === 0 ? 'red' : index === 5 ? 'green' : 'black'} 
+              />
+            ))}
+            {monthDates.map((date, index) => {
+              if (!date) return null;
+              const row = Math.floor(index / 7);
+              const col = index % 7;
+              return (
+                <Text
+                  key={index}
+                  text={date.getDate()}
+                  x={col * 35 + 5}
+                  y={row * 20 + 70}
+                  width={35}
+                  align="center"
+                  fontStyle="bold"
+                  fill={date.getDay() === 0 ? 'red' : date.getDay() === 5 ? 'green' : 'black'}
+                />
+              );
+            })}
+          </Group>
+        </Layer>
+      </Stage>
+      {selectedText && calendarContainerRef.current && selectedText.y !== undefined && selectedText.height !== undefined && (
+        <div
+          className="absolute"
+          style={{
+            top: `${calendarContainerRef.current.container().getBoundingClientRect().top + selectedText.y + selectedText.height + 10}px`,
+            left: `50%`,
+            transform: 'translateX(-50%)',
+            zIndex: 100,
+          }}
+        >
+          <TextEditingTools
+            selectedText={selectedText}
+            onUpdateText={handleUpdateText}
+          />
         </div>
-        <div className="grid grid-cols-7 gap-0 text-center text-xs">
-          {monthDates.map((date, index) => (
-            <div key={index} className="w-8 h-8 flex items-center justify-center">
-              {date ? (
-                <span
-                  className={`font-bold ${date.getDay() === 0 
-                      ? 'text-red-500'
-                      : date.getDay() === 5 
-                      ? 'text-green-500'
-                      : 'text-black'
-                  }`}
-                >
-                  {date.getDate()}
-                </span>
-              ) : (
-                ''
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
     </div>
   );
 };

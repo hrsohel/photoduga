@@ -3,7 +3,7 @@ import CalendarPageNavigation from './CalendarPageNavigation';
 import CalendarRightSide from './CalendarRightSide';
 import CalendarRightToolbar from './CalendarRightToolbar';
 
-const CalendarMiddleSide = ({ pages, setPages, currentPage, setCurrentPage, selectedBg, bgType, selectedSticker, setSelectedSticker, onAddCanvasText, isAddingText, setIsAddingText, layout, onAddGrid, onRemoveGrid, onShuffleGrids, calendarContainerRef }) => {
+const CalendarMiddleSide = ({ pages, setPages, currentPage, setCurrentPage, selectedBg, bgType, selectedSticker, setSelectedSticker, onAddCanvasText, isAddingText, setIsAddingText, layout, onUpdateLayout, onAddGrid, onRemoveGrid, onShuffleGrids, calendarContainerRef, stickers, setStickers, texts, setTexts, selectedId, selectShape, currentMonthIndex }) => {
   return (
     <div className="w-full flex flex-col bg-gray-100 p-4">
       {/* <CalendarPageNavigation
@@ -33,6 +33,15 @@ const CalendarMiddleSide = ({ pages, setPages, currentPage, setCurrentPage, sele
             onRemoveGrid={onRemoveGrid}
             onShuffleGrids={onShuffleGrids}
             calendarContainerRef={calendarContainerRef}
+            layout={layout}
+            onUpdateLayout={onUpdateLayout}
+            stickers={stickers}
+            setStickers={setStickers}
+            texts={texts}
+            setTexts={setTexts}
+            selectedId={selectedId}
+            selectShape={selectShape}
+            currentMonthIndex={currentMonthIndex}
           />      </div>
     </div>
   );

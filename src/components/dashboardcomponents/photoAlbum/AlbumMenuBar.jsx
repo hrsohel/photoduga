@@ -1,9 +1,10 @@
 import React from 'react';
+import html2canvas from 'html2canvas';
 
-export default function AlbunMenuBar({ onUndo, onRedo, onSave, albumState }) {
+const AlbumMenuBar = ({ onUndo, onRedo, onDownload }) => {
     const handleSave = () => {
-        if (onSave) {
-            onSave();
+        if (onDownload) {
+            onDownload();
         }
     };
 
@@ -61,6 +62,9 @@ export default function AlbunMenuBar({ onUndo, onRedo, onSave, albumState }) {
                     </svg>
                     <p className='font-[600] font-sans text-[16px] text-center text-[#727273]'>Save</p>
                 </div>
+
+
+
                 <div className='px-[16px] py-[8px] rounded-[40px] flex items-center justify-center gap-[10px]' style={{ background: "linear-gradient(to right, #10200B, #558945)" }}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <g clip-path="url(#clip0_2472_7804)">
@@ -78,3 +82,5 @@ export default function AlbunMenuBar({ onUndo, onRedo, onSave, albumState }) {
         </div>
     );
 }
+
+export default AlbumMenuBar;

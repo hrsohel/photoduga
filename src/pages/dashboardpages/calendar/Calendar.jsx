@@ -10,8 +10,9 @@ import { nanoid } from 'nanoid';
 import TextEditingTools from '@/components/dashboardcomponents/photoAlbum/TextEditingTools';
 import LayoutSelector from '@/components/dashboardcomponents/calendar/LayoutSelector';
 import CalendarTools from '@/components/dashboardcomponents/calendar/CalendarTools';
-import AlbunMenuBar from '@/components/dashboardcomponents/photoAlbum/AlbunMenuBar';
+import AlbumMenuBar from '@/components/dashboardcomponents/photoAlbum/AlbumMenuBar';
 import PhotoLayoutModal from '@/components/dashboardcomponents/calendar/PhotoLayoutModal';
+import CalendarPageNavigation from '@/components/dashboardcomponents/calendar/CalendarPageNavigation';
 import html2canvas from 'html2canvas';
 
 const dbPromise = openDB('calendar-db', 1, {
@@ -81,23 +82,151 @@ const transformInitialPages = (pages) => {
 
 const Calendar = () => {
   const calendarContainerRef = useRef(null);
-  const [pages, setPages] = useState(transformInitialPages(initialPages));
-  const [currentPage, setCurrentPage] = useState(pages[0]);
-  const [activeLeftBar, setActiveLeftBar] = useState("Pictures");
-  const [showLayoutSelector, setShowLayoutSelector] = useState(false);
-  const [uploadedImages, setUploadedImages] = useState([]);
-  const [bgType, setBgType] = useState('plain');
-  const [selectedBg, setSelectedBg] = useState('#FFFFFF');
-  const [selectedSticker, setSelectedSticker] = useState(null);
-  const [isAddingText, setIsAddingText] = useState(false);
-  const [showPhotoLayoutModal, setShowPhotoLayoutModal] = useState(false);
+
+  const initialMonthState = () => ({
+    pages: transformInitialPages(initialPages),
+    currentPage: transformInitialPages(initialPages)[0],
+    activeLeftBar: "Pictures",
+    bgType: 'plain',
+    selectedBg: '#FFFFFF',
+    stickers: [],
+    texts: [],
+    selectedId: null,
+    selectedSticker: null,
+    history: [],
+    historyIndex: -1,
+    showPhotoLayoutModal: false,
+    isAddingText: false,
+    uploadedImages: [],
+    showLayoutSelector: false,
+  });
+
+  const [calendarMonths, setCalendarMonths] = useState(() => {
+    const months = [];
+    for (let i = 0; i < 12; i++) {
+      months.push(initialMonthState());
+    }
+    return months;
+  });
+  const [currentMonthIndex, setCurrentMonthIndex] = useState(0);
+
+  const updateCurrentMonthState = (newState) => {
+    setCalendarMonths(prevMonths => {
+      const newMonths = [...prevMonths];
+      newMonths[currentMonthIndex] = { ...newMonths[currentMonthIndex], ...newState };
+      return newMonths;
+    });
+  };
+
+  const currentMonthState = calendarMonths[currentMonthIndex];
+
+  if (!currentMonthState) {
+    return null; // Or render a loading spinner/error message
+  }
+
+  const { pages, currentPage, activeLeftBar, bgType, selectedBg, stickers, texts, selectedId, selectedSticker = null, isAddingText = false, history, historyIndex, showPhotoLayoutModal, uploadedImages, showLayoutSelector } = currentMonthState;
+
+  const isRestoringRef = useRef(false); // Added
+  const previousStateRef = useRef();
+
+  console.log('selectedSticker:', selectedSticker, 'currentMonthState:', currentMonthState);
+  useEffect(() => {
+    if (isRestoringRef.current) {
+      isRestoringRef.current = false;
+      return;
+    }
+    const currentState = {
+      pages,
+      currentPage,
+      activeLeftBar,
+      bgType,
+      selectedBg,
+      stickers,
+      texts,
+      selectedId,
+    };
+    saveStateToHistory(currentState);
+  }, [pages, currentPage, activeLeftBar, bgType, selectedBg, stickers, texts, selectedId]);
+
+  const saveStateToHistory = (currentState) => {
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(currentState);
+    updateCurrentMonthState({ history: newHistory, historyIndex: newHistory.length - 1 });
+  };
+
+  useEffect(() => {
+    if (selectedSticker) {
+      const newSticker = {
+        id: 'sticker-' + nanoid(),
+        text: selectedSticker,
+        x: 100,
+        y: 100,
+        fontSize: 50,
+      };
+      updateCurrentMonthState({ stickers: [...stickers, newSticker], selectedSticker: null });
+    }
+  }, [selectedSticker]);
+
+  useEffect(() => {
+    if (isAddingText) {
+        const newText = {
+            id: 'text-' + nanoid(),
+            text: 'Double click to edit',
+            x: 150,
+            y: 150,
+            fontSize: 20,
+            fontFamily: 'Arial',
+            fill: 'black',
+            width: 150,
+            height: 30,
+            align: 'left',
+          };
+          updateCurrentMonthState({ texts: [...texts, newText], isAddingText: false });
+    }
+  }, [isAddingText]);
+
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      isRestoringRef.current = true;
+      const newHistoryIndex = historyIndex - 1;
+      const previousState = history[newHistoryIndex];
+      updateCurrentMonthState({
+        pages: previousState.pages,
+        currentPage: previousState.currentPage,
+        activeLeftBar: previousState.activeLeftBar,
+        bgType: previousState.bgType,
+        selectedBg: previousState.selectedBg,
+        stickers: previousState.stickers,
+        texts: previousState.texts,
+        historyIndex: newHistoryIndex,
+      });
+    }
+  };
+
+  const handleRedo = () => {
+    if (historyIndex < history.length - 1) {
+      isRestoringRef.current = true;
+      const newHistoryIndex = historyIndex + 1;
+      const nextState = history[newHistoryIndex];
+      updateCurrentMonthState({
+        pages: nextState.pages,
+        currentPage: nextState.currentPage,
+        activeLeftBar: nextState.activeLeftBar,
+        bgType: nextState.bgType,
+        selectedBg: nextState.selectedBg,
+        stickers: nextState.stickers,
+        texts: nextState.texts,
+        historyIndex: newHistoryIndex,
+      });
+    }
+  };
 
   const handleAddText = () => {
-    setIsAddingText(true);
+    updateCurrentMonthState({ isAddingText: true });
   };
 
   const onTogglePhotoLayoutModal = () => {
-    setShowPhotoLayoutModal(prev => !prev);
+    updateCurrentMonthState(prev => ({ showPhotoLayoutModal: !prev.showPhotoLayoutModal }));
   };
 
   const handleAddGrid = () => {
@@ -123,18 +252,19 @@ const Calendar = () => {
     const newPages = pages.map(p =>
       p.id === currentPage.id ? { ...p, layout: updatedLayout } : p
     );
-    setPages(newPages);
-    setCurrentPage(newPages.find(p => p.id === currentPage.id));
+    updateCurrentMonthState({
+      pages: newPages,
+      currentPage: newPages.find(p => p.id === currentPage.id),
+    });
   };
 
   const handleRemoveGrid = () => {
     if (currentPage.layout && currentPage.layout.length > 0) {
       const updatedLayout = currentPage.layout.slice(0, -1);
-      const newPages = pages.map(p =>
-        p.id === currentPage.id ? { ...p, layout: updatedLayout } : p
-      );
-      setPages(newPages);
-      setCurrentPage(newPages.find(p => p.id === currentPage.id));
+      updateCurrentMonthState({
+        pages: newPages,
+        currentPage: newPages.find(p => p.id === currentPage.id),
+      });
     }
   };
 
@@ -168,33 +298,42 @@ const Calendar = () => {
       const newPages = pages.map(p =>
         p.id === currentPage.id ? { ...p, layout: repositionedLayout } : p
       );
-      setPages(newPages);
-      setCurrentPage(newPages.find(p => p.id === currentPage.id));
+      updateCurrentMonthState({
+        pages: newPages,
+        currentPage: newPages.find(p => p.id === currentPage.id),
+      });
     }
   };
 
   useEffect(() => {
     const loadState = async () => {
       const db = await dbPromise;
-      const savedPages = await db.get('calendar-pages', 'pages');
-      if (savedPages) {
-        setPages(savedPages);
-        setCurrentPage(savedPages[0]);
+      const savedState = await db.get('calendar-pages', 'calendar-state');
+      if (savedState && savedState.calendarMonths) {
+        setCalendarMonths(savedState.calendarMonths);
+        setCurrentMonthIndex(savedState.currentMonthIndex || 0);
+      } else {
+        // If no saved state, initialize with default values for all 12 months
+        const months = [];
+        for (let i = 0; i < 12; i++) {
+          months.push(initialMonthState());
+        }
+        setCalendarMonths(months);
+        setCurrentMonthIndex(0);
       }
     };
     loadState();
   }, []);
 
+  // Initialize selectedId after all state declarations
   useEffect(() => {
-    const saveState = async () => {
-      const db = await dbPromise;
-      await db.put('calendar-pages', pages, 'pages');
-    };
-    saveState();
-  }, [pages]);
+    if (selectedId === undefined) {
+      updateCurrentMonthState({ selectedId: null });
+    }
+  }, [selectedId]);
 
   const handleLayoutSelect = () => {
-    setShowLayoutSelector(!showLayoutSelector);
+    updateCurrentMonthState(prev => ({ showLayoutSelector: !prev.showLayoutSelector }));
   };
 
   const generateGridsFromLayout = (layout, canvasWidth, canvasHeight) => {
@@ -227,18 +366,17 @@ const Calendar = () => {
 
   const handleLayoutChange = (layout) => {
     const newGrids = generateGridsFromLayout(layout, 400, 700); 
-    const newPages = pages.map(p => {
-      if (p.id === currentPage.id) {
-        return { ...p, layout: newGrids }; 
-      }
-      return p;
+    const newPages = pages.map(p =>
+      p.id === currentPage.id ? { ...p, layout: newGrids } : p
+    );
+    updateCurrentMonthState({
+      pages: newPages,
+      currentPage: newPages.find(p => p.id === currentPage.id),
     });
-    setPages(newPages);
-    setCurrentPage(newPages.find(p => p.id === currentPage.id));
   };
 
   const handleSelectSticker = (sticker) => {
-    setSelectedSticker(sticker);
+    updateCurrentMonthState({ selectedSticker: sticker });
   };
 
   const handleImageUpload = (event) => {
@@ -251,30 +389,67 @@ const Calendar = () => {
       });
     });
     Promise.all(newImagesPromises).then(newImages => {
-      setUploadedImages([...uploadedImages, ...newImages]);
+      updateCurrentMonthState({ uploadedImages: [...uploadedImages, ...newImages] });
     });
   };
 
-  const handleSaveCalendarAsPng = async () => {
-    if (calendarContainerRef.current) {
-      const canvas = await html2canvas(calendarContainerRef.current);
-      const link = document.createElement('a');
-      link.download = `calendar-page-${currentPage.id}.png`;
-      link.href = canvas.toDataURL('image/png');
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+  const handleUpdateLayout = (updatedLayout) => {
+    const newPages = pages.map(p =>
+      p.id === currentPage.id ? { ...p, layout: updatedLayout } : p
+    );
+    updateCurrentMonthState({
+      pages: newPages,
+      currentPage: newPages.find(p => p.id === currentPage.id),
+    });
+  };
+
+  const handleSaveStateToIndexedDB = async () => {
+    try {
+      const db = await dbPromise;
+      const stateToSave = {
+        calendarMonths,
+        currentMonthIndex,
+      };
+      await db.put('calendar-pages', stateToSave, 'calendar-state');
+      console.log('Calendar state explicitly saved to IndexedDB');
+    } catch (error) {
+      console.error('Error explicitly saving calendar state to IndexedDB:', error);
     }
+  };
+
+  const handleDownloadImage = async () => {
+    // First, save the state to IndexedDB
+    await handleSaveStateToIndexedDB();
+
+    // Then, proceed with image download
+    if (calendarContainerRef.current) {
+      html2canvas(calendarContainerRef.current.container()).then(canvas => {
+        const link = document.createElement('a');
+        link.download = 'calendar.png';
+        link.href = canvas.toDataURL('image/png');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      });
+    }
+  };
+
+  const setPagesForCurrentMonth = (newPages) => {
+    updateCurrentMonthState({ pages: newPages });
+  };
+
+  const setCurrentPageForCurrentMonth = (newPage) => {
+    updateCurrentMonthState({ currentPage: newPage });
   };
 
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="flex flex-col h-screen">
         {/* <PhotoAlbumToolbar /> */}
-        <AlbunMenuBar onSave={handleSaveCalendarAsPng} />
+        <AlbumMenuBar onUndo={handleUndo} onRedo={handleRedo} onDownload={handleDownloadImage} onSaveState={handleSaveStateToIndexedDB} />
         <div className="flex flex-1 overflow-hidden h-full">
           <CalendarLeftSide 
-            onSelect={(tool) => setActiveLeftBar(tool)} 
+            onSelect={(tool) => updateCurrentMonthState({ activeLeftBar: tool })} 
             onLayoutSelect={handleLayoutSelect}
           />
           <div className="w-[100px] bg-white p-4 h-screen -mt-8">
@@ -283,9 +458,9 @@ const Calendar = () => {
               handleImageUpload={handleImageUpload}
               activeLeftBar={activeLeftBar}
               bgType={bgType}
-              setBgType={setBgType}
+              setBgType={(type) => updateCurrentMonthState({ bgType: type })}
               selectedBg={selectedBg}
-              setSelectedBg={setSelectedBg}
+              setSelectedBg={(color) => updateCurrentMonthState({ selectedBg: color })}
               onSelectLayout={handleLayoutChange}
               onSelectSticker={handleSelectSticker}
               onAddCanvasText={handleAddText}
@@ -298,25 +473,34 @@ const Calendar = () => {
           {console.log('currentPage.layout:', currentPage.layout)}
           <CalendarMiddleSide
             pages={pages}
-            setPages={setPages}
+            setPages={setPagesForCurrentMonth}
             currentPage={currentPage}
-            setCurrentPage={setCurrentPage}
+            setCurrentPage={setCurrentPageForCurrentMonth}
             selectedBg={selectedBg}
             bgType={bgType}
             layout={currentPage.layout}
+            onUpdateLayout={handleUpdateLayout}
             selectedSticker={selectedSticker}
-            setSelectedSticker={setSelectedSticker}
+            setSelectedSticker={(sticker) => updateCurrentMonthState({ selectedSticker: sticker })}
             onAddCanvasText={handleAddText}
             isAddingText={isAddingText}
-            setIsAddingText={setIsAddingText}
+            setIsAddingText={(value) => updateCurrentMonthState({ isAddingText: value })}
             showPhotoLayoutModal={showPhotoLayoutModal}
             onAddGrid={handleAddGrid}
             onRemoveGrid={handleRemoveGrid}
             onShuffleGrids={handleShuffleGrids}
             calendarContainerRef={calendarContainerRef}
+            stickers={stickers}
+            setStickers={(newStickers) => updateCurrentMonthState({ stickers: newStickers })}
+            texts={texts}
+            setTexts={(newTexts) => updateCurrentMonthState({ texts: newTexts })}
+            selectedId={selectedId}
+            selectShape={(id) => updateCurrentMonthState({ selectedId: id })}
+            currentMonthIndex={currentMonthIndex}
           />
         </div>
       </div>
+      <CalendarPageNavigation currentMonthIndex={currentMonthIndex} onMonthChange={setCurrentMonthIndex} calendarMonths={calendarMonths} />
     </DndProvider>
   );
 };
