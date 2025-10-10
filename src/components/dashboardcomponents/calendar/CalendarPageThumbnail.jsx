@@ -144,3 +144,4 @@ const CalendarPageThumbnail = ({ monthName, isSelected, monthData, monthIndex, t
 };
 
 export default CalendarPageThumbnail;
+
