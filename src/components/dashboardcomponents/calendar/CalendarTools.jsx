@@ -4,10 +4,11 @@ import CalendarBackground from './CalendarBackground';
 import CalendarStickerComponent from './CalendarStickerComponent';
 import LayoutSelector from './LayoutSelector';
 import CalendarPictures from './CalendarPictures';
+import CalendarPageNavigation from './CalendarPageNavigation';
 
-export default function CalendarTools({ uploadedImages, handleImageUpload, activeLeftBar, bgType, setBgType, selectedBg, setSelectedBg, onSelectSticker, onSelectLayout }) {
+export default function CalendarTools({ uploadedImages, handleImageUpload, activeLeftBar, bgType, setBgType, selectedBg, setSelectedBg, onSelectSticker, onSelectLayout, currentMonthIndex, onMonthChange, calendarMonths, setViewMode }) {
   const showComponent = {
-    "Frames": () => <CalendarPictures uploadedImages={uploadedImages} handleImageUpload={handleImageUpload} />,
+    "Frames": () => <CalendarPageNavigation currentMonthIndex={currentMonthIndex} onMonthChange={onMonthChange} calendarMonths={calendarMonths} setViewMode={setViewMode} />,
     "Stickers": () => <CalendarStickerComponent onSelectSticker={onSelectSticker} />,
     "Backgrounds": () => <CalendarBackground 
       uploadedImages={uploadedImages} 
@@ -18,7 +19,7 @@ export default function CalendarTools({ uploadedImages, handleImageUpload, activ
       setSelectedBg={setSelectedBg}
     />,
     "Layouts": () => <LayoutSelector onSelect={onSelectLayout} />,
-    "Pictures": () => <CalendarFrames uploadedImages={uploadedImages} handleImageUpload={handleImageUpload} />,
+    "Pictures": () => <CalendarPictures uploadedImages={uploadedImages} handleImageUpload={handleImageUpload} />,
   };
 
   return (

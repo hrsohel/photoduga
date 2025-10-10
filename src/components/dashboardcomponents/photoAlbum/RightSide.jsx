@@ -110,6 +110,11 @@ export default function RightSide({
   setCanvasTexts,
   onAddCanvasText,
 }) {
+  const STAGE_WIDTH = 1000;
+  const STAGE_HEIGHT = 520;
+  const padding = 20;
+  const middleGap = 40;
+  const sideWidth = (STAGE_WIDTH - middleGap) / 2;
   const gridRefs = useRef([]);
   const gridTransformerRef = useRef(null);
   const imageTransformerRef = useRef(null);
@@ -549,15 +554,12 @@ export default function RightSide({
   };
 
   const getCurrentGridLayout = () => {
-    const stageWidth = 1250;
-    const stageHeight = 650;
-    const padding = 20;
-    const middleGap = 40;
-    const sideWidth = (stageWidth - middleGap) / 2;
+    const stageWidth = STAGE_WIDTH;
+    const stageHeight = STAGE_HEIGHT;
     const rightX = sideWidth + middleGap;
     let layout = [];
-    const cellWidth = 200;
-    const cellHeight = 200;
+    const cellWidth = 110;
+    const cellHeight = 110;
 
     const addSide = (count, startX, baseId, partition) => {
       if (count === 0) return;
@@ -586,22 +588,35 @@ export default function RightSide({
     addSide(gridCount.right, rightX, gridCount.left, 'right');
 
     layout.push({
-      x: sideWidth + 10,
+      x: 486,
       y: padding,
-      width: 2,
+      width: 4,
       height: stageHeight - 2 * padding,
       id: gridCount.left + gridCount.right,
       shape: "line",
-      partition: 'middle'
+      partition: 'middle',
+      stroke: 'red' // For debugging
     });
     layout.push({
-      x: sideWidth + middleGap - 12,
+      x: 510,
       y: padding,
-      width: 2,
+      width: 4,
       height: stageHeight - 2 * padding,
       id: gridCount.left + gridCount.right + 1,
       shape: "line",
-      partition: 'middle'
+      partition: 'middle',
+      stroke: 'red' // For debugging
+    });
+    // Add a temporary blue line at the center
+    layout.push({
+      x: (STAGE_WIDTH / 2) - 1, // Center - half width of line
+      y: 0,
+      width: 2,
+      height: stageHeight,
+      id: gridCount.left + gridCount.right + 2,
+      shape: "line",
+      partition: 'debug',
+      stroke: 'blue' // For debugging
     });
 
     return layout;
@@ -1063,9 +1078,9 @@ export default function RightSide({
 
   return (
     <>
-    <div className="flex w-full h-[90vh] justify-start items-start bg-gray-200">
-      <div className="flex w-[1250px] h-[100%] gap-4 items-start">
-        <div className="w-[100px] h-full p-4 border-r space-y-4 bg-gray-100 border-2">
+    <div className="flex w-full h-[90vh] justify-start items-center bg-gray-200">
+      <div style={{ width: `${STAGE_WIDTH}px` }} className="flex h-[100%] gap-4 items-start">
+        <div className="w-[100px] p-4 border-r space-y-4 border-2">
           <div onClick={onAddCanvasText} className="border-[1px] p-[10px] rounded-[2px] border-[#E0E0E0] cursor-pointer w-[40px]">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M10.0002 14.0007H6.00016M8.00016 2V14M8.00016 2C8.92483 2 9.9135 2.02 11.0588 2.11733C11.4588 2.15867 11.6588 2.17933 11.8362 2.252C12.0214 2.33032 12.187 2.44855 12.3212 2.59824C12.4555 2.74793 12.555 2.92541 12.6128 3.118C12.6668 3.30267 12.6668 3.51333 12.6668 3.93467M8.00016 2C7.0755 2 5.88683 2.02 4.9415 2.11733C4.5415 2.15867 4.3415 2.17933 4.16416 2.252C3.97885 2.33024 3.81309 2.44843 3.67872 2.59813C3.54435 2.74783 3.44468 2.92534 3.38683 3.118C3.3335 3.30267 3.3335 3.51333 3.3335 3.93467" stroke="#A8C3A0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
@@ -1143,8 +1158,8 @@ export default function RightSide({
           )}
           <Stage
             ref={stageRef}
-            width={1250}
-            height={650}
+            width={STAGE_WIDTH}
+            height={STAGE_HEIGHT}
             onClick={(e) => {
               // if click is on empty area of the stage
               if (e.target === e.target.getStage()) {
@@ -1163,23 +1178,23 @@ export default function RightSide({
             }}
           >
             <Layer>
-              <KonvaImage image={bgImage} width={1280} height={650} fill={bgType === 'plain' ? selectedBg : 'transparent'} />
+              <KonvaImage image={bgImage} width={STAGE_WIDTH} height={STAGE_HEIGHT} fill={bgType === 'plain' ? selectedBg : 'transparent'} />
               
               <Rect
                 x={0}
                 y={0}
-                width={605}
-                height={650}
+                width={sideWidth}
+                height={STAGE_HEIGHT}
                 fill={selectedPartition === 'left' ? 'rgba(168, 195, 160, 0.1)' : 'transparent'}
                 stroke="transparent"
                 strokeWidth={0}
                 onClick={(e) => handlePartitionClick('left', e)}
               />
               <Rect
-                x={645}
+                x={sideWidth + middleGap}
                 y={0}
-                width={605}
-                height={650}
+                width={sideWidth}
+                height={STAGE_HEIGHT}
                 fill={selectedPartition === 'right' ? 'rgba(168, 195, 160, 0.1)' : 'transparent'}
                 stroke="transparent"
                 strokeWidth={0}

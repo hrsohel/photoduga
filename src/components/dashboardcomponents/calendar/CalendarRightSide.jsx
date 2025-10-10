@@ -63,13 +63,13 @@ const DraggableText = ({ shapeProps, isSelected, onSelect, onChange, onDblClick 
 };
 
 const GridRect = ({ shapeProps, isSelected, onSelect, onChange }) => {
-  const shapeRef = useRef();
+  const groupRef = useRef();
   const trRef = useRef();
   const [img] = useImage(shapeProps.image, 'Anonymous');
 
   useEffect(() => {
     if (isSelected) {
-      trRef.current.nodes([shapeRef.current]);
+      trRef.current.nodes([groupRef.current]);
       trRef.current.getLayer().batchDraw();
     }
   }, [isSelected]);
@@ -77,6 +77,7 @@ const GridRect = ({ shapeProps, isSelected, onSelect, onChange }) => {
   return (
     <React.Fragment>
     <Group
+      ref={groupRef}
       onClick={onSelect}
       onTap={onSelect}
       onDragEnd={(e) => {
@@ -89,9 +90,22 @@ const GridRect = ({ shapeProps, isSelected, onSelect, onChange }) => {
       x={shapeProps.x}
       y={shapeProps.y}
       draggable
+      onTransformEnd={(e) => {
+        const node = groupRef.current;
+        const scaleX = node.scaleX();
+        const scaleY = node.scaleY();
+        node.scaleX(1);
+        node.scaleY(1);
+        onChange({
+          ...shapeProps,
+          x: node.x(),
+          y: node.y(),
+          width: Math.max(5, shapeProps.width * scaleX),
+          height: Math.max(5, shapeProps.height * scaleY),
+        });
+      }}
     >
       <Rect
-        ref={shapeRef}
         x={0}
         y={0}
         width={shapeProps.width}
@@ -126,6 +140,8 @@ const GridRect = ({ shapeProps, isSelected, onSelect, onChange }) => {
 };
 
 const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSticker, isAddingText, setIsAddingText, gridLayout, calendarContainerRef, layout, onUpdateLayout, stickers, setStickers, texts, setTexts, selectedId, selectShape, currentMonthIndex }) => {
+  const CALENDAR_WIDTH = 320;
+  const CALENDAR_HEIGHT = 600;
   console.log('CalendarRightSide: gridLayout at component start', gridLayout);
 
   const generateMonthDates = (year, month) => {
@@ -329,6 +345,18 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
           const newTexts = texts.filter((text) => text.id !== selectedId);
           setTexts(newTexts);
           selectShape(null);
+        } else if (selectedId.startsWith('grid-')) {
+          const newLayout = layout.map((grid) => {
+            if (grid.id === selectedId) {
+              return {
+                ...grid,
+                image: null,
+              };
+            }
+            return grid;
+          });
+          onUpdateLayout(newLayout);
+          selectShape(null);
         }
       }
     };
@@ -337,15 +365,15 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedId, stickers, texts]);
+  }, [selectedId, stickers, texts, layout, onUpdateLayout, setStickers, setTexts, selectShape]);
 
   const [bgImage] = useImage(bgType === 'image' ? selectedBg : null, 'anonymous');
 
   return (
-    <div className="w-[400px] h-[750px] shadow-lg sticky top-0" onDrop={handleDrop} onDragOver={handleDragOver}>
+    <div className={`w-[${CALENDAR_WIDTH}px] h-[${CALENDAR_HEIGHT}px] shadow-lg sticky top-0`} onDrop={handleDrop} onDragOver={handleDragOver}>
       <Stage 
-        width={400} 
-        height={750} 
+        width={CALENDAR_WIDTH} 
+        height={CALENDAR_HEIGHT} 
         ref={calendarContainerRef} 
         onMouseDown={(e) => { 
           const clickedOnEmpty = e.target === e.target.getStage();
@@ -355,8 +383,8 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
         }}
       >
         <Layer>
-          {bgType === 'image' && bgImage && <Image image={bgImage} width={400} height={750} />}
-          {bgType === 'plain' && <Rect width={400} height={750} fill={selectedBg} />}
+          {bgType === 'image' && bgImage && <Image image={bgImage} width={CALENDAR_WIDTH} height={CALENDAR_HEIGHT} />}
+          {bgType === 'plain' && <Rect width={CALENDAR_WIDTH} height={CALENDAR_HEIGHT} fill={selectedBg} />}
           {layout.map((grid, i) => {
             return (
               <GridRect
@@ -411,16 +439,16 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
           })}
         </Layer>
         <Layer>
-          <Group x={75} y={500}>
-            <Rect width={250} height={200} fill="rgba(255, 255, 255, 0.5)" />
-            <Text text={`${monthName} ${currentYear}`} fontSize={18} fontStyle="bold" align="center" width={250} y={10} />
+          <Group x={20} y={430}>
+            <Rect width={280} height={170} fill="rgba(255, 255, 255, 0.5)" />
+            <Text text={`${monthName} ${currentYear}`} fontSize={14.4} fontStyle="bold" align="center" width={280} y={8} />
             {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
               <Text 
                 key={index} 
                 text={day} 
-                x={index * 35 + 5} 
-                y={40} 
-                width={35} 
+                x={index * 38 + 7} 
+                y={34} 
+                width={38} 
                 align="center" 
                 fontStyle="bold" 
                 fill={index === 0 ? 'red' : index === 5 ? 'green' : 'black'} 
@@ -434,9 +462,9 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
                 <Text
                   key={index}
                   text={date.getDate()}
-                  x={col * 35 + 5}
-                  y={row * 20 + 70}
-                  width={35}
+                  x={col * 38 + 7} 
+                  y={row * 17 + 64} 
+                  width={38} 
                   align="center"
                   fontStyle="bold"
                   fill={date.getDay() === 0 ? 'red' : date.getDay() === 5 ? 'green' : 'black'}

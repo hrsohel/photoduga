@@ -14,6 +14,7 @@ import AlbumMenuBar from '@/components/dashboardcomponents/photoAlbum/AlbumMenuB
 import PhotoLayoutModal from '@/components/dashboardcomponents/calendar/PhotoLayoutModal';
 import CalendarPageNavigation from '@/components/dashboardcomponents/calendar/CalendarPageNavigation';
 import html2canvas from 'html2canvas';
+import AllPagesView from '@/components/dashboardcomponents/calendar/AllPagesView';
 
 const dbPromise = openDB('calendar-db', 1, {
   upgrade(db) {
@@ -66,8 +67,8 @@ const generateGridsFromLayoutData = (layoutData, canvasWidth, canvasHeight) => {
 };
 
 const transformInitialPages = (pages) => {
-  const canvasWidth = 400; 
-  const canvasHeight = 700; 
+  const canvasWidth = 320; 
+  const canvasHeight = 600; 
 
   return pages.map(page => {
     if (page.layout) {
@@ -82,11 +83,12 @@ const transformInitialPages = (pages) => {
 
 const Calendar = () => {
   const calendarContainerRef = useRef(null);
+  const [viewMode, setViewMode] = useState('one-side');
+  const [activeLeftBar, setActiveLeftBar] = useState('Pictures');
 
   const initialMonthState = () => ({
     pages: transformInitialPages(initialPages),
     currentPage: transformInitialPages(initialPages)[0],
-    activeLeftBar: "Pictures",
     bgType: 'plain',
     selectedBg: '#FFFFFF',
     stickers: [],
@@ -124,7 +126,7 @@ const Calendar = () => {
     return null; // Or render a loading spinner/error message
   }
 
-  const { pages, currentPage, activeLeftBar, bgType, selectedBg, stickers, texts, selectedId, selectedSticker = null, isAddingText = false, history, historyIndex, showPhotoLayoutModal, uploadedImages, showLayoutSelector } = currentMonthState;
+  const { pages, currentPage, bgType, selectedBg, stickers, texts, selectedId, selectedSticker = null, isAddingText = false, history, historyIndex, showPhotoLayoutModal, uploadedImages, showLayoutSelector } = currentMonthState;
 
   const isRestoringRef = useRef(false); // Added
   const previousStateRef = useRef();
@@ -138,7 +140,6 @@ const Calendar = () => {
     const currentState = {
       pages,
       currentPage,
-      activeLeftBar,
       bgType,
       selectedBg,
       stickers,
@@ -146,7 +147,7 @@ const Calendar = () => {
       selectedId,
     };
     saveStateToHistory(currentState);
-  }, [pages, currentPage, activeLeftBar, bgType, selectedBg, stickers, texts, selectedId]);
+  }, [pages, currentPage, bgType, selectedBg, stickers, texts, selectedId]);
 
   const saveStateToHistory = (currentState) => {
     const newHistory = history.slice(0, historyIndex + 1);
@@ -193,7 +194,6 @@ const Calendar = () => {
       updateCurrentMonthState({
         pages: previousState.pages,
         currentPage: previousState.currentPage,
-        activeLeftBar: previousState.activeLeftBar,
         bgType: previousState.bgType,
         selectedBg: previousState.selectedBg,
         stickers: previousState.stickers,
@@ -211,7 +211,6 @@ const Calendar = () => {
       updateCurrentMonthState({
         pages: nextState.pages,
         currentPage: nextState.currentPage,
-        activeLeftBar: nextState.activeLeftBar,
         bgType: nextState.bgType,
         selectedBg: nextState.selectedBg,
         stickers: nextState.stickers,
@@ -259,12 +258,20 @@ const Calendar = () => {
   };
 
   const handleRemoveGrid = () => {
+    console.log("handleRemoveGrid called");
     if (currentPage.layout && currentPage.layout.length > 0) {
+      console.log("Current layout length:", currentPage.layout.length);
       const updatedLayout = currentPage.layout.slice(0, -1);
+      console.log("New layout length:", updatedLayout.length);
+      const newPages = pages.map(p =>
+        p.id === currentPage.id ? { ...p, layout: updatedLayout } : p
+      );
       updateCurrentMonthState({
         pages: newPages,
         currentPage: newPages.find(p => p.id === currentPage.id),
       });
+    } else {
+      console.log("No layout or layout is empty");
     }
   };
 
@@ -442,6 +449,11 @@ const Calendar = () => {
     updateCurrentMonthState({ currentPage: newPage });
   };
 
+  const handleToolSelect = (tool) => {
+    setActiveLeftBar(tool);
+    setViewMode('one-side');
+  };
+
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="flex flex-col h-screen">
@@ -449,10 +461,10 @@ const Calendar = () => {
         <AlbumMenuBar onUndo={handleUndo} onRedo={handleRedo} onDownload={handleDownloadImage} onSaveState={handleSaveStateToIndexedDB} />
         <div className="flex flex-1 overflow-hidden h-full">
           <CalendarLeftSide 
-            onSelect={(tool) => updateCurrentMonthState({ activeLeftBar: tool })} 
+            onSelect={handleToolSelect} 
             onLayoutSelect={handleLayoutSelect}
           />
-          <div className="w-[100px] bg-white p-4 h-screen -mt-8">
+          <div className={`bg-white p-4 h-screen -mt-8 ${activeLeftBar === 'Frames' ? 'w-[400px]' : 'w-[100px]'}`}>
             <CalendarTools 
               uploadedImages={uploadedImages}
               handleImageUpload={handleImageUpload}
@@ -467,40 +479,47 @@ const Calendar = () => {
               onAddGrid={handleAddGrid}
               onRemoveGrid={handleRemoveGrid}
               onShuffleGrids={handleShuffleGrids}
+              currentMonthIndex={currentMonthIndex}
+              onMonthChange={setCurrentMonthIndex}
+              calendarMonths={calendarMonths}
+              setViewMode={setViewMode}
             />
             {showLayoutSelector && <LayoutSelector onSelect={handleLayoutChange} />}
           </div>
           {console.log('currentPage.layout:', currentPage.layout)}
-          <CalendarMiddleSide
-            pages={pages}
-            setPages={setPagesForCurrentMonth}
-            currentPage={currentPage}
-            setCurrentPage={setCurrentPageForCurrentMonth}
-            selectedBg={selectedBg}
-            bgType={bgType}
-            layout={currentPage.layout}
-            onUpdateLayout={handleUpdateLayout}
-            selectedSticker={selectedSticker}
-            setSelectedSticker={(sticker) => updateCurrentMonthState({ selectedSticker: sticker })}
-            onAddCanvasText={handleAddText}
-            isAddingText={isAddingText}
-            setIsAddingText={(value) => updateCurrentMonthState({ isAddingText: value })}
-            showPhotoLayoutModal={showPhotoLayoutModal}
-            onAddGrid={handleAddGrid}
-            onRemoveGrid={handleRemoveGrid}
-            onShuffleGrids={handleShuffleGrids}
-            calendarContainerRef={calendarContainerRef}
-            stickers={stickers}
-            setStickers={(newStickers) => updateCurrentMonthState({ stickers: newStickers })}
-            texts={texts}
-            setTexts={(newTexts) => updateCurrentMonthState({ texts: newTexts })}
-            selectedId={selectedId}
-            selectShape={(id) => updateCurrentMonthState({ selectedId: id })}
-            currentMonthIndex={currentMonthIndex}
-          />
+          {viewMode === 'one-side' ? (
+            <CalendarMiddleSide
+              pages={pages}
+              setPages={setPagesForCurrentMonth}
+              currentPage={currentPage}
+              setCurrentPage={setCurrentPageForCurrentMonth}
+              selectedBg={selectedBg}
+              bgType={bgType}
+              layout={currentPage.layout}
+              onUpdateLayout={handleUpdateLayout}
+              selectedSticker={selectedSticker}
+              setSelectedSticker={(sticker) => updateCurrentMonthState({ selectedSticker: sticker })}
+              onAddCanvasText={handleAddText}
+              isAddingText={isAddingText}
+              setIsAddingText={(value) => updateCurrentMonthState({ isAddingText: value })}
+              showPhotoLayoutModal={showPhotoLayoutModal}
+              onAddGrid={handleAddGrid}
+              onRemoveGrid={handleRemoveGrid}
+              onShuffleGrids={handleShuffleGrids}
+              calendarContainerRef={calendarContainerRef}
+              stickers={stickers}
+              setStickers={(newStickers) => updateCurrentMonthState({ stickers: newStickers })}
+              texts={texts}
+              setTexts={(newTexts) => updateCurrentMonthState({ texts: newTexts })}
+              selectedId={selectedId}
+              selectShape={(id) => updateCurrentMonthState({ selectedId: id })}
+              currentMonthIndex={currentMonthIndex}
+            />
+          ) : (
+            <AllPagesView calendarMonths={calendarMonths} />
+          )}
         </div>
       </div>
-      <CalendarPageNavigation currentMonthIndex={currentMonthIndex} onMonthChange={setCurrentMonthIndex} calendarMonths={calendarMonths} />
     </DndProvider>
   );
 };

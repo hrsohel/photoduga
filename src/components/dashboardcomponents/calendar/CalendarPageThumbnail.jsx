@@ -1,10 +1,8 @@
 import React from 'react';
 
-const CalendarPageThumbnail = ({ monthName, isSelected, monthData, monthIndex }) => {
+const CalendarPageThumbnail = ({ monthName, isSelected, monthData, monthIndex, thumbWidth = 96, thumbHeight = 180 }) => {
   const canvasWidth = 400; // Original canvas width from CalendarRightSide
   const canvasHeight = 750; // Original canvas height from CalendarRightSide
-  const thumbWidth = 96; // w-24 from PageNavigation
-  const thumbHeight = 180; // Adjusted height for better aspect ratio
 
   const scaleX = thumbWidth / canvasWidth;
   const scaleY = thumbHeight / canvasHeight;
@@ -48,7 +46,7 @@ const CalendarPageThumbnail = ({ monthName, isSelected, monthData, monthIndex })
   const monthDates = generateMonthDates(currentYear, monthIndex);
 
   return (
-    <div style={backgroundStyle}>
+    <div style={backgroundStyle} className='mx-auto'>
       {monthData.stickers.map((sticker, i) => (
         <div
           key={i}

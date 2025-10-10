@@ -1,7 +1,7 @@
 import React from 'react';
 import html2canvas from 'html2canvas';
 
-const AlbumMenuBar = ({ onUndo, onRedo, onDownload }) => {
+const AlbumMenuBar = ({ onUndo, onRedo, onDownload, onSaveState }) => {
     const handleSave = () => {
         if (onDownload) {
             onDownload();
@@ -49,6 +49,14 @@ const AlbumMenuBar = ({ onUndo, onRedo, onDownload }) => {
                 </svg>
             </div>
             <div className='flex items-center justify-center gap-[20px]'>
+                <div className='flex items-center justify-center flex-col cursor-pointer' onClick={onSaveState}>
+                    <svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <g clip-path="url(#clip0_2754_2554)">
+                            <path d="M19.5 13.5V18.5C19.5 19.05 19.05 19.5 18.5 19.5H6.5C5.95 19.5 5.5 19.05 5.5 18.5V13.5C5.5 12.95 5.05 12.5 4.5 12.5C3.95 12.5 3.5 12.95 3.5 13.5V19.5C3.5 20.6 4.4 21.5 5.5 21.5H19.5C20.6 21.5 21.5 20.6 21.5 19.5V13.5C21.5 12.95 21.05 12.5 20.5 12.5C19.95 12.5 19.5 12.95 19.5 13.5ZM13.5 13.17L15.38 11.29C15.77 10.9 16.4 10.9 16.79 11.29C17.18 11.68 17.18 12.31 16.79 12.7L13.2 16.29C12.81 16.68 12.18 16.68 11.79 16.29L8.2 12.7C7.81 12.31 7.81 11.68 8.2 11.29C8.59 10.9 9.22 10.9 9.61 11.29L11.5 13.17V4.5C11.5 3.95 11.95 3.5 12.5 3.5C13.05 3.5 13.5 3.95 13.5 4.5V13.17Z" fill="#A8C3A0" />
+                        </g>
+                    </svg>
+                    <p className='font-[600] font-sans text-[16px] text-center text-[#727273]'>Save Progress</p>
+                </div>
                 <div className='flex items-center justify-center flex-col cursor-pointer' onClick={handleSave}>
                     <svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <g clip-path="url(#clip0_2754_2554)">
@@ -60,7 +68,7 @@ const AlbumMenuBar = ({ onUndo, onRedo, onDownload }) => {
                             </clipPath>
                         </defs>
                     </svg>
-                    <p className='font-[600] font-sans text-[16px] text-center text-[#727273]'>Save</p>
+                    <p className='font-[600] font-sans text-[16px] text-center text-[#727273]'>Download</p>
                 </div>
 
 

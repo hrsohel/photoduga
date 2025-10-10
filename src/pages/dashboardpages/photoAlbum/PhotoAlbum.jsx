@@ -5,6 +5,7 @@ import PageNavigation from '@/components/dashboardcomponents/photoAlbum/PageNavi
 import RightSide from '@/components/dashboardcomponents/photoAlbum/RightSide';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { get, set, clear } from '@/lib/db';
+import PhotoAlbumAllPagesView from '@/components/dashboardcomponents/photoAlbum/PhotoAlbumAllPagesView';
 
 const createBlankPage = () => ({
   placedImages: [],
@@ -26,6 +27,7 @@ export default function PhotoAlbum() {
   const stageRef = useRef(null);
   const [pages, setPages] = useState([createBlankPage()]);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [viewMode, setViewMode] = useState('one-side');
 
   // States for the active page
   const [uploadedImages, setUploadedImages] = useState([]);
@@ -95,27 +97,31 @@ export default function PhotoAlbum() {
     loadPages();
   }, []);
 
-  // Save all pages to IndexedDB
-  useEffect(() => {
+  const handleSaveState = async () => {
     if (isLoading) return;
+    try {
+      const currentEditorState = {
+        placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg,
+        history, historyIndex, lastStableState, skipAutoLayout, canvasStickers, canvasTexts
+      };
+      const updatedPages = pages.map((page, index) => index === currentPageIndex ? currentEditorState : page);
+      const stateToSave = { pages: updatedPages, currentPageIndex };
+      const sanitizedState = JSON.parse(JSON.stringify(stateToSave));
+      await set('photoAlbumPages', sanitizedState);
+      console.log("Photo album state saved to IndexedDB.");
+    } catch (error) {
+      console.error("Error saving pages:", error);
+    }
+  };
 
-    const savePages = async () => {
-      try {
-        const currentEditorState = {
-          placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg,
-          history, historyIndex, lastStableState, skipAutoLayout, canvasStickers, canvasTexts
-        };
-        const updatedPages = pages.map((page, index) => index === currentPageIndex ? currentEditorState : page);
-        const stateToSave = { pages: updatedPages, currentPageIndex };
-        const sanitizedState = JSON.parse(JSON.stringify(stateToSave));
-        await set('photoAlbumPages', sanitizedState);
-      } catch (error) {
-        console.error("Error saving pages:", error);
-      }
+  // Synchronize current page state with pages array
+  useEffect(() => {
+    const currentEditorState = {
+      placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg,
+      history, historyIndex, lastStableState, skipAutoLayout, canvasStickers, canvasTexts
     };
-
-    savePages();
-  }, [pages, currentPageIndex, placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg, history, historyIndex, lastStableState, skipAutoLayout, canvasStickers, canvasTexts, isLoading]);
+    setPages(prevPages => prevPages.map((page, index) => index === currentPageIndex ? currentEditorState : page));
+  }, [currentPageIndex, placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg, history, historyIndex, lastStableState, skipAutoLayout, canvasStickers, canvasTexts]);
 
   const loadPageData = (pageData) => {
     setPlacedImages(pageData.placedImages || []);
@@ -270,74 +276,83 @@ export default function PhotoAlbum() {
           onUndo={undoRedoCallbacks.onUndo}
           onRedo={undoRedoCallbacks.onRedo}
           onDownload={handleSave}
+          onSaveState={handleSaveState}
         />
-        <div className='flex items-start justify-center relative'>
-          <LeftSide activeLeftBar={activeLeftBar} setActiveLeftBar={setActiveLeftBar} setShowPageNavigation={setShowPageNavigation} />
-          <MiddleSide
-            uploadedImages={uploadedImages}
-            handleImageUpload={handleImageUpload}
-            bgType={bgType}
-            setBgType={setBgType}
-            selectedBg={selectedBg}
-            setSelectedBg={setSelectedBg}
-            activeLeftBar={activeLeftBar}
-            setActiveLeftBar={setActiveLeftBar}
-            onSelectSticker={handleStickerSelect}
-            onSelectLayout={handleLayoutSelect}
-          />
-          <RightSide
-            stageRef={stageRef}
-            bgType={bgType}
-            setBgType={setBgType}
-            selectedBg={selectedBg}
-            setSelectedBg={setSelectedBg}
-            selectedSticker={selectedSticker}
-            setSelectedSticker={setSelectedSticker}
-            onStickerPlaced={onStickerPlaced}
-            selectedText={selectedText}
-            setSelectedText={setSelectedText}
-            selectedPhotoLayout={selectedPhotoLayout}
-            setSelectedPhotoLayout={setSelectedPhotoLayout}
-            onLayoutApplied={onLayoutApplied}
-            registerUndoRedoCallbacks={registerUndoRedoCallbacks}
-            placedImages={placedImages}
-            setPlacedImages={setPlacedImages}
-            gridCount={gridCount}
-            setGridCount={setGridCount}
-            gridPositions={gridPositions}
-            setGridPositions={setGridPositions}
-            layoutModeLeft={layoutModeLeft}
-            setLayoutModeLeft={setLayoutModeLeft}
-            layoutModeRight={layoutModeRight}
-            setLayoutModeRight={setLayoutModeRight}
-            history={history}
-            setHistory={setHistory}
-            historyIndex={historyIndex}
-            setHistoryIndex={setHistoryIndex}
-            lastStableState={lastStableState}
-            setLastStableState={setLastStableState}
-            selectedImageIndex={selectedImageIndex}
-            setSelectedImageIndex={setSelectedImageIndex}
-            selectedElement={selectedElement}
-            setSelectedElement={setSelectedElement}
-            contextMenu={contextMenu}
-            setContextMenu={setContextMenu}
-            selectedPartition={selectedPartition}
-            setSelectedPartition={setSelectedPartition}
-            showPageLayout={showPageLayout}
-            setShowPageLayout={setShowPageLayout}
-            loadedImages={loadedImages}
-            setLoadedImages={setLoadedImages}
-            activeLeftBar={activeLeftBar}
-            setActiveLeftBar={setActiveLeftBar}
-            skipAutoLayout={skipAutoLayout}
-            setSkipAutoLayout={setSkipAutoLayout}
-            canvasStickers={canvasStickers}
-            setCanvasStickers={setCanvasStickers}
-            canvasTexts={canvasTexts}
-            setCanvasTexts={setCanvasTexts}
-            onAddCanvasText={handleAddCanvasText}
-          />
+        <div className='flex items-start relative'>
+          <div className="flex">
+            <LeftSide activeLeftBar={activeLeftBar} setActiveLeftBar={setActiveLeftBar} setShowPageNavigation={setShowPageNavigation} />
+            <MiddleSide
+              uploadedImages={uploadedImages}
+              handleImageUpload={handleImageUpload}
+              bgType={bgType}
+              setBgType={setBgType}
+              selectedBg={selectedBg}
+              setSelectedBg={setSelectedBg}
+              activeLeftBar={activeLeftBar}
+              setActiveLeftBar={setActiveLeftBar}
+              onSelectSticker={handleStickerSelect}
+              onSelectLayout={handleLayoutSelect}
+            />
+          </div>
+          <div className="flex-1 flex justify-center items-center">
+            {viewMode === 'one-side' ? (
+              <RightSide
+                stageRef={stageRef}
+                bgType={bgType}
+                setBgType={setBgType}
+                selectedBg={selectedBg}
+                setSelectedBg={setSelectedBg}
+                selectedSticker={selectedSticker}
+                setSelectedSticker={setSelectedSticker}
+                onStickerPlaced={onStickerPlaced}
+                selectedText={selectedText}
+                setSelectedText={setSelectedText}
+                selectedPhotoLayout={selectedPhotoLayout}
+                setSelectedPhotoLayout={setSelectedPhotoLayout}
+                onLayoutApplied={onLayoutApplied}
+                registerUndoRedoCallbacks={registerUndoRedoCallbacks}
+                placedImages={placedImages}
+                setPlacedImages={setPlacedImages}
+                gridCount={gridCount}
+                setGridCount={setGridCount}
+                gridPositions={gridPositions}
+                setGridPositions={setGridPositions}
+                layoutModeLeft={layoutModeLeft}
+                setLayoutModeLeft={setLayoutModeLeft}
+                layoutModeRight={layoutModeRight}
+                setLayoutModeRight={setLayoutModeRight}
+                history={history}
+                setHistory={setHistory}
+                historyIndex={historyIndex}
+                setHistoryIndex={setHistoryIndex}
+                lastStableState={lastStableState}
+                setLastStableState={setLastStableState}
+                selectedImageIndex={selectedImageIndex}
+                setSelectedImageIndex={setSelectedImageIndex}
+                selectedElement={selectedElement}
+                setSelectedElement={setSelectedElement}
+                contextMenu={contextMenu}
+                setContextMenu={setContextMenu}
+                selectedPartition={selectedPartition}
+                setSelectedPartition={setSelectedPartition}
+                showPageLayout={showPageLayout}
+                setShowPageLayout={setShowPageLayout}
+                loadedImages={loadedImages}
+                setLoadedImages={setLoadedImages}
+                activeLeftBar={activeLeftBar}
+                setActiveLeftBar={setActiveLeftBar}
+                skipAutoLayout={skipAutoLayout}
+                setSkipAutoLayout={setSkipAutoLayout}
+                canvasStickers={canvasStickers}
+                setCanvasStickers={setCanvasStickers}
+                canvasTexts={canvasTexts}
+                setCanvasTexts={setCanvasTexts}
+                onAddCanvasText={handleAddCanvasText}
+              />
+            ) : (
+              <PhotoAlbumAllPagesView pages={pages} />
+            )}
+          </div>
           {showPageNavigation && (
             <div className="fixed bottom-0 w-full">
               <PageNavigation 
@@ -351,6 +366,7 @@ export default function PhotoAlbum() {
                 onAddPage={handleAddBlankPage}
                 onDuplicatePage={handleDuplicatePage}
                 onRemovePage={handleRemovePage}
+                setViewMode={setViewMode}
               />
             </div>
           )}
