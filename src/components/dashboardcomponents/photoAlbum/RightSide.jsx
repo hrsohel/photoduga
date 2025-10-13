@@ -110,11 +110,11 @@ export default function RightSide({
   setCanvasTexts,
   onAddCanvasText,
 }) {
-  const STAGE_WIDTH = 1000;
-  const STAGE_HEIGHT = 520;
+  const STAGE_WIDTH = 1180;
+  const STAGE_HEIGHT = 620;
   const padding = 20;
   const middleGap = 40;
-  const sideWidth = (STAGE_WIDTH - middleGap) / 2;
+  const sideWidth = (STAGE_WIDTH) / 2;
   const gridRefs = useRef([]);
   const gridTransformerRef = useRef(null);
   const imageTransformerRef = useRef(null);
@@ -587,26 +587,7 @@ export default function RightSide({
     addSide(gridCount.left, 0, 0, 'left');
     addSide(gridCount.right, rightX, gridCount.left, 'right');
 
-    layout.push({
-      x: 486,
-      y: padding,
-      width: 4,
-      height: stageHeight - 2 * padding,
-      id: gridCount.left + gridCount.right,
-      shape: "line",
-      partition: 'middle',
-      stroke: 'red' // For debugging
-    });
-    layout.push({
-      x: 510,
-      y: padding,
-      width: 4,
-      height: stageHeight - 2 * padding,
-      id: gridCount.left + gridCount.right + 1,
-      shape: "line",
-      partition: 'middle',
-      stroke: 'red' // For debugging
-    });
+
     // Add a temporary blue line at the center
     layout.push({
       x: (STAGE_WIDTH / 2) - 1, // Center - half width of line
@@ -1142,7 +1123,7 @@ export default function RightSide({
             </div>
           </div>
         </div>
-        <div className="flex-1 flex justify-center items-center bg-gray-200 relative border-[12px] border-[#A8C3A0] mt-4">
+        <div className="flex-1 flex justify-center items-center bg-gray-200 relative border-[12px] border-[#A8C3A0] mt-1">
           {selectedElement.type === 'canvas-text' && (
             <div style={{ 
               position: 'absolute', 
@@ -1191,7 +1172,7 @@ export default function RightSide({
                 onClick={(e) => handlePartitionClick('left', e)}
               />
               <Rect
-                x={sideWidth + middleGap}
+                x={sideWidth}
                 y={0}
                 width={sideWidth}
                 height={STAGE_HEIGHT}

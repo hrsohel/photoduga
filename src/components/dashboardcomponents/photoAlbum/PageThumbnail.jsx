@@ -2,8 +2,8 @@ import React from 'react';
 
 
 const PageThumbnail = ({ page, thumbWidth = 96, thumbHeight = 80 }) => {
-  const canvasWidth = 1000;
-  const canvasHeight = 520;
+  const canvasWidth = 1180;
+  const canvasHeight = 620;
 
   const scale = Math.min(thumbWidth / canvasWidth, thumbHeight / canvasHeight);
 

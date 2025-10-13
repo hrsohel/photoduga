@@ -134,11 +134,11 @@ const PageNavigation = ({ currentPage, totalPages, pages, onPageChange, onAddPag
         {pages && pages.map((page, pageIndex) => (
           <div
             key={pageIndex}
-            className={`flex-shrink-0 w-24 h-16 border rounded overflow-hidden flex items-center justify-center cursor-pointer ${currentPage === pageIndex ? 'border-2 border-blue-500' : 'border-gray-300'
+            className={`flex-shrink-0 w-32 h-16 border rounded overflow-hidden flex items-center justify-center cursor-pointer ${currentPage === pageIndex ? 'border-2 border-blue-500' : 'border-gray-300'}
               }`}
             onClick={() => onPageChange(pageIndex)}
           >
-            <PageThumbnail page={page} thumbWidth={220} thumbHeight={180} />
+            <PageThumbnail page={page} thumbWidth={128} thumbHeight={64} />
           </div>
         ))}
       </div>
