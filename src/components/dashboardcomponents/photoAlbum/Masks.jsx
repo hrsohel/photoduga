@@ -12,7 +12,7 @@ export default function Masks({ maskData }) {
             <h3 className="text-md font-medium mb-3 capitalize">{categoryName}</h3>
             <div className="grid grid-cols-3 gap-4">
               {images.map((imagePath, imgIndex) => (
-                <div key={imgIndex} className="mask-item border rounded-lg overflow-hidden shadow-sm flex justify-center items-center p-2">
+                <div key={imgIndex} className="mask-item border rounded-lg overflow-hidden shadow-sm flex justify-center items-center p-2 cursor-move" draggable onDragStart={(e) => e.dataTransfer.setData('maskUrl', imagePath)}>
                   <img src={imagePath} alt={`${categoryName} mask ${imgIndex + 1}`} className="w-12 h-12 object-cover" />
                 </div>
               ))}

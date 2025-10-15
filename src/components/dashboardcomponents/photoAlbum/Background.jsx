@@ -28,6 +28,10 @@ export default function Background({ bgType, selectedBg, setBgType, setSelectedB
                                     {backgroundCategories[category].map((option, index) => (
                                         <div
                                             key={index}
+                                            draggable
+                                            onDragStart={(e) => {
+                                                e.dataTransfer.setData('backgroundUrl', option);
+                                            }}
                                             onClick={() => setBackground(category, index)}
                                             style={{
                                                 backgroundColor: option.startsWith('#') ? option : 'transparent',

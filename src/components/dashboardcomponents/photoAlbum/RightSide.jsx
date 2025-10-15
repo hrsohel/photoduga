@@ -5,6 +5,28 @@ import Konva from "konva";
 import AvailablePages from "./AvailablePages";
 import TextEditingTools from "./TextEditingTools";
 
+const Mask = ({ maskSrc, width, height }) => {
+    const [mask, status] = useImage(maskSrc, 'anonymous');
+    if (status === 'loading') {
+        return <Text text="Loading..." fontSize={14} fill="gray" width={width} height={height} verticalAlign="middle" align="center" />;
+    }
+    if (status === 'failed') {
+        return <Text text="Error" fontSize={14} fill="red" width={width} height={height} verticalAlign="middle" align="center" />;
+    }
+    
+    return (
+        <Group
+            clipFunc={ctx => {
+                if (mask) {
+                    ctx.drawImage(mask, 0, 0, width, height);
+                }
+            }}
+        >
+            <Rect width={width} height={height} fill="black" />
+        </Group>
+    );
+};
+
 const loadImage = async (src) => {
   if (!src) return new Image();
   return new Promise((resolve) => {
@@ -14,6 +36,74 @@ const loadImage = async (src) => {
     img.onload = () => resolve(img);
     img.onerror = () => resolve(new Image());
   });
+};
+
+const FrameImage = ({ src, x, y, width, height }) => {
+  const [image] = useImage(src);
+  return <KonvaImage image={image} x={x} y={y} width={width} height={height} />;
+};
+
+const MaskedImage = ({ loadedImage, maskSrc, width, height }) => {
+    const [mask, maskStatus] = useImage(maskSrc, 'anonymous');
+
+    // Calculate scale and position to cover the area
+    let imageX = 0;
+    let imageY = 0;
+    let imageWidth = width;
+    let imageHeight = height;
+
+    if (loadedImage) {
+        const imageAspectRatio = loadedImage.width / loadedImage.height;
+        const containerAspectRatio = width / height;
+
+        if (containerAspectRatio > imageAspectRatio) {
+            imageHeight = height;
+            imageWidth = height * imageAspectRatio;
+            imageX = (width - imageWidth) / 2;
+        } else {
+            imageWidth = width;
+            imageHeight = width / imageAspectRatio;
+            imageY = (height - imageHeight) / 2;
+        }
+    }
+
+    return (
+        <Group>
+            {/* This group will clip the image */}
+            <Group
+                clipFunc={ctx => {
+                    if (maskStatus === 'loaded' && mask) {
+                        // Calculate mask dimensions and position based on mask-size and mask-position
+                        const maskScale = 0.8; // Let's try 80% for now, can be adjusted
+                        const maskDrawWidth = width * maskScale;
+                        const maskDrawHeight = height * maskScale;
+                        const maskDrawX = (width - maskDrawWidth) / 2; // Center horizontally
+                        const maskDrawY = (height - maskDrawHeight) / 2; // Center vertically
+
+                        ctx.drawImage(mask, maskDrawX, maskDrawY, maskDrawWidth, maskDrawHeight);
+                    }
+                }}
+            >
+                <KonvaImage
+                    image={loadedImage}
+                    x={imageX}
+                    y={imageY}
+                    width={imageWidth}
+                    height={imageHeight}
+                />
+            </Group>
+            {/* This KonvaImage will draw the mask on top as an overlay */}
+            {maskStatus === 'loaded' && mask && (
+                <KonvaImage
+                    image={mask}
+                    x={0}
+                    y={0}
+                    width={width}
+                    height={height}
+                />
+            )}
+        </Group>
+    );
 };
 
 // Image Editor Component with Zoom only
@@ -126,6 +216,11 @@ export default function RightSide({
   const [isRestoring, setIsRestoring] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [transformersReady, setTransformersReady] = useState(false);
+  const [leftBg, setLeftBg] = useState(null);
+  const [rightBg, setRightBg] = useState(null);
+  const [leftBgType, setLeftBgType] = useState('plain');
+  const [rightBgType, setRightBgType] = useState('plain');
+
 
   const stateForHistoryRef = useRef();
   stateForHistoryRef.current = {
@@ -133,6 +228,7 @@ export default function RightSide({
     selectedBg, selectedSticker, selectedText, selectedPhotoLayout, selectedImageIndex,
     selectedElement, contextMenu, selectedPartition, showPageLayout, activeLeftBar, skipAutoLayout,
     history, historyIndex, setHistory, setHistoryIndex,
+    leftBg, rightBg, leftBgType, rightBgType,
     canvasStickers, // Add to history ref
     canvasTexts,
   };
@@ -158,6 +254,7 @@ export default function RightSide({
         selectedBg, selectedSticker, selectedText, selectedPhotoLayout, selectedImageIndex,
         selectedElement, contextMenu, selectedPartition, showPageLayout, activeLeftBar, skipAutoLayout,
         history, historyIndex, setHistory, setHistoryIndex,
+        leftBg, rightBg, leftBgType, rightBgType,
         canvasStickers,
         canvasTexts
     } = stateForHistoryRef.current;
@@ -166,7 +263,7 @@ export default function RightSide({
       placedImages: JSON.parse(JSON.stringify(placedImages)).map(img => ({
         ...img,
         texts: img.texts.map(t => ({ ...t })),
-        stickers: img.stickers.map(s => ({ ...s })),
+        stickers: img.stickers.map(s => ({ ...s }))
       })),
       gridCount: { ...gridCount },
       gridPositions: JSON.parse(JSON.stringify(gridPositions)),
@@ -174,6 +271,10 @@ export default function RightSide({
       layoutModeRight,
       bgType,
       selectedBg,
+      leftBg,
+      rightBg,
+      leftBgType,
+      rightBgType,
       selectedSticker,
       selectedText,
       selectedPhotoLayout,
@@ -219,6 +320,10 @@ export default function RightSide({
       setSelectedPartition(prevState.selectedPartition || 'left');
       setActiveLeftBar(prevState.activeLeftBar || "Frames");
       setSkipAutoLayout(prevState.skipAutoLayout || false);
+      setLeftBg(prevState.leftBg || null);
+      setRightBg(prevState.rightBg || null);
+      setLeftBgType(prevState.leftBgType || 'plain');
+      setRightBgType(prevState.rightBgType || 'plain');
       setCanvasStickers(prevState.canvasStickers || []);
       setCanvasTexts(prevState.canvasTexts || []);
       
@@ -252,6 +357,10 @@ export default function RightSide({
       setSelectedPartition(nextState.selectedPartition || 'left');
       setActiveLeftBar(nextState.activeLeftBar || "Frames");
       setSkipAutoLayout(nextState.skipAutoLayout || false);
+      setLeftBg(nextState.leftBg || null);
+      setRightBg(nextState.rightBg || null);
+      setLeftBgType(nextState.leftBgType || 'plain');
+      setRightBgType(nextState.rightBgType || 'plain');
       setCanvasStickers(nextState.canvasStickers || []);
       setCanvasTexts(nextState.canvasTexts || []);
       
@@ -282,6 +391,8 @@ export default function RightSide({
   }, [isRestoring]);
 
   const [bgImage] = useImage(bgType === 'image' && selectedBg.startsWith('http') ? selectedBg : null, 'anonymous');
+  const [leftBgImage] = useImage(leftBgType === 'image' && leftBg ? leftBg : null, 'anonymous');
+  const [rightBgImage] = useImage(rightBgType === 'image' && rightBg ? rightBg : null, 'anonymous');
 
   // Improved image loading with better error handling
   useEffect(() => {
@@ -610,17 +721,45 @@ export default function RightSide({
 
   const handleStageDrop = (e) => {
     e.preventDefault();
+    const backgroundUrl = e.dataTransfer.getData('backgroundUrl');
     const imageUrl = e.dataTransfer.getData('imageUrl');
     const stickerUrl = e.dataTransfer.getData('stickerUrl');
-    if (!imageUrl && !stickerUrl) return;
+    const maskUrl = e.dataTransfer.getData('maskUrl');
+    const frameUrl = e.dataTransfer.getData('frameUrl');
 
     const rect = stageRef.current.container().getBoundingClientRect();
     const pointerPosition = {
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
     };
-    const layout = gridPositions;
 
+    if (backgroundUrl) {
+        const pointerX = pointerPosition.x;
+        const centerThreshold = 40;
+    
+        if (pointerX > sideWidth - centerThreshold && pointerX < sideWidth + centerThreshold) {
+            setSelectedBg(backgroundUrl);
+            setBgType(backgroundUrl.startsWith('#') ? 'plain' : 'image');
+            setLeftBg(null);
+            setRightBg(null);
+            setLeftBgType('plain');
+            setRightBgType('plain');
+        } else if (pointerX < sideWidth) {
+            setLeftBg(backgroundUrl);
+            setLeftBgType(backgroundUrl.startsWith('#') ? 'plain' : 'image');
+            setSelectedBg('transparent');
+            setBgType('plain');
+        } else {
+            setRightBg(backgroundUrl);
+            setRightBgType(backgroundUrl.startsWith('#') ? 'plain' : 'image');
+            setSelectedBg('transparent');
+            setBgType('plain');
+        }
+        saveToHistory();
+        return;
+    }
+
+    const layout = gridPositions;
     let targetGridIndex = -1;
     for (let i = 0; i < layout.length; i++) {
       if (layout[i].shape !== "rect") continue;
@@ -633,6 +772,32 @@ export default function RightSide({
         break;
       }
     }
+
+    if (maskUrl && targetGridIndex !== -1) {
+      const newGridPositions = gridPositions.map(pos => {
+          if (pos.id === targetGridIndex) {
+              return { ...pos, mask: maskUrl };
+          }
+          return pos;
+      });
+      setGridPositions(newGridPositions);
+      saveToHistory();
+      return;
+    }
+
+    if (frameUrl && targetGridIndex !== -1) {
+      const newGridPositions = gridPositions.map(pos => {
+          if (pos.id === targetGridIndex) {
+              return { ...pos, frameUrl: frameUrl };
+          }
+          return pos;
+      });
+      setGridPositions(newGridPositions);
+      saveToHistory();
+      return;
+    }
+
+    if (!imageUrl && !stickerUrl) return;
 
     if (targetGridIndex !== -1) {
       const cell = layout.find(pos => pos.id === targetGridIndex && pos.shape === "rect");
@@ -654,6 +819,7 @@ export default function RightSide({
           zIndex: Math.max(...placedImages.map((img) => img.zIndex || 0), 0) + 1,
           gridId: targetGridIndex,
           id: Date.now() + Math.random(),
+          maskSrc: cell.mask || null,
         };
 
         let newPlacedImages;
@@ -1048,7 +1214,7 @@ export default function RightSide({
         stageContainer.removeEventListener('drop', handleStageDrop);
       };
     }
-  }, [gridPositions, placedImages, stageRef, canvasStickers]);
+  }, [gridPositions, placedImages, stageRef, canvasStickers, leftBg, rightBg, selectedBg]);
 
   useEffect(() => {
     if (gridCount.left !== lastStableState.gridCount.left || gridCount.right !== lastStableState.gridCount.right) {
@@ -1160,6 +1326,26 @@ export default function RightSide({
           >
             <Layer>
               <KonvaImage image={bgImage} width={STAGE_WIDTH} height={STAGE_HEIGHT} fill={bgType === 'plain' ? selectedBg : 'transparent'} />
+              {leftBg && (
+                <KonvaImage
+                    image={leftBgImage}
+                    x={0}
+                    y={0}
+                    width={sideWidth}
+                    height={STAGE_HEIGHT}
+                    fill={leftBgType === 'plain' ? leftBg : 'transparent'}
+                />
+              )}
+              {rightBg && (
+                  <KonvaImage
+                      image={rightBgImage}
+                      x={sideWidth}
+                      y={0}
+                      width={sideWidth}
+                      height={STAGE_HEIGHT}
+                      fill={rightBgType === 'plain' ? rightBg : 'transparent'}
+                  />
+              )}
               
               <Rect
                 x={0}
@@ -1234,7 +1420,7 @@ export default function RightSide({
                         strokeWidth={0}
                       />
                     )}
-                    {!imageInThisGrid && frame.shape === "rect" && (
+                    {!imageInThisGrid && frame.shape === "rect" && !frame.mask && (
                       <Text
                         text="Drag here"
                         x={0}
@@ -1245,6 +1431,9 @@ export default function RightSide({
                         fill="gray"
                       />
                     )}
+                    {!imageInThisGrid && frame.mask && (
+                      <Mask maskSrc={frame.mask} width={frame.width} height={frame.height} />
+                    )}
                     {imageInThisGrid && (
                       <Group name="image-content">
                         <Rect
@@ -1253,14 +1442,48 @@ export default function RightSide({
                           fill="white"
                           stroke="#ddd"
                           strokeWidth={1}
-                          cornerRadius={8}
+                          cornerRadius={frame.mask ? 0 : 8}
                         />
-                        <KonvaImage
-                          image={image}
-                          width={imageInThisGrid.width}
-                          height={imageInThisGrid.height}
-                          cornerRadius={8}
-                        />
+                        {imageInThisGrid.maskSrc ? (
+                            <MaskedImage
+                                loadedImage={image}
+                                maskSrc={imageInThisGrid.maskSrc}
+                                width={imageInThisGrid.width}
+                                height={imageInThisGrid.height}
+                            />
+                        ) : (
+                            (() => {
+                                let imageX = 0;
+                                let imageY = 0;
+                                let imageWidth = imageInThisGrid.width;
+                                let imageHeight = imageInThisGrid.height;
+
+                                if (image) {
+                                    const imageAspectRatio = image.width / image.height;
+                                    const containerAspectRatio = imageInThisGrid.width / imageInThisGrid.height;
+
+                                    if (containerAspectRatio > imageAspectRatio) {
+                                        imageHeight = imageInThisGrid.height;
+                                        imageWidth = imageInThisGrid.height * imageAspectRatio;
+                                        imageX = (imageInThisGrid.width - imageWidth) / 2;
+                                    } else {
+                                        imageWidth = imageInThisGrid.width;
+                                        imageHeight = imageInThisGrid.width / imageAspectRatio;
+                                        imageY = (imageInThisGrid.height - imageHeight) / 2;
+                                    }
+                                }
+
+                                return (
+                                    <KonvaImage
+                                        image={image}
+                                        x={imageX}
+                                        y={imageY}
+                                        width={imageWidth}
+                                        height={imageHeight}
+                                    />
+                                );
+                            })()
+                        )}
                         {imageInThisGrid.texts.map((text, textIndex) => (
                           <Text
                             key={`text-${textIndex}`}
@@ -1343,6 +1566,15 @@ export default function RightSide({
                           />
                         ))}
                       </Group>
+                    )}
+                    {frame.frameUrl && (
+                      <FrameImage
+                        src={frame.frameUrl}
+                        x={0}
+                        y={0}
+                        width={frame.width}
+                        height={frame.height}
+                      />
                     )}
                   </Group>
                 );

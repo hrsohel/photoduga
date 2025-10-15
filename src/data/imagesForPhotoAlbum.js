@@ -110,3 +110,13 @@ export const stickerCategories = {
   "Shocked & Surprised": ["😲", "😳", "😱", "😯"],
   "Love & Romance": ["💋", "💘", "💖", "💞", "💑"]
 }
+export const frameCategories = {
+    "Simple": [
+      "/masks/Gold_Transparent_PNG_Photo_Frame.png",
+      "/masks/Gold_Transparent_Frame_PNG_Image.png",
+      "/masks/pngimg.com_picture_frame_PNG1.png",
+      "/masks/pngimg.com_picture_frame_PNG172.png",
+      "https://cdn1.getprintbox.com/pbx2-zekinalbum/media/asset/8fbbf9b6-9b4a-4b16-b5dd-f3e305b17624_thumb_300x300",
+      "https://cdn1.getprintbox.com/pbx2-zekinalbum/media/asset/0a47b353-190a-4237-a303-8c3fe61bb11c_thumb_300x300"
+    ]
+};

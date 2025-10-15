@@ -102,17 +102,16 @@ export default function PhotoLayouts({ onSelectLayout }) {
   return (
     <div className='w-[300px] bg-white p-6 h-[91vh] sticky top-0 border-l-[1px] border-[#98989833] overflow-y-auto'>
       <h3 className='font-semibold text-[22px] text-[#727273] font-sans text-center'>Photo Layouts</h3>
-      
+
       <div className='space-y-4 mt-[40px]'>
         {gridLayouts.map((layoutGroup) => (
           <div key={layoutGroup.category}>
             <button
               onClick={() => toggleCategory(layoutGroup.category)}
-              className={`w-full text-left text-[12px] font-[600] font-sans px-[24px] py-[12px] flex justify-between items-center rounded-[8px] ${
-                expandedCategories.has(layoutGroup.category)
+              className={`w-full text-left text-[12px] font-[600] font-sans px-[24px] py-[12px] flex justify-between items-center rounded-[8px] ${expandedCategories.has(layoutGroup.category)
                   ? 'bg-[#A8C3A0] text-[#ffffff] border-l-4 border-[#A8C3A0]'
                   : 'text-[#727273CC] hover:bg-gray-50'
-              }`}
+                }`}
             >
               <span>{layoutGroup.category}</span>
               <span>{expandedCategories.has(layoutGroup.category) ? '▲' : '▼'}</span>

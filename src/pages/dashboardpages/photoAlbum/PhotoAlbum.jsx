@@ -140,8 +140,6 @@ export default function PhotoAlbum() {
   };
 
   const handlePageChange = (newIndex) => {
-    if (newIndex === currentPageIndex) return;
-
     const currentEditorState = {
       placedImages, gridCount, gridPositions, layoutModeLeft, layoutModeRight, bgType, selectedBg,
       history, historyIndex, lastStableState, skipAutoLayout, canvasStickers, canvasTexts
