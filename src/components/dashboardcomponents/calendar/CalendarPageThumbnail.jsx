@@ -1,8 +1,8 @@
 import React from 'react';
 
 const CalendarPageThumbnail = ({ monthName, isSelected, monthData, monthIndex, thumbWidth = 96, thumbHeight = 180 }) => {
-  const canvasWidth = 400; // Original canvas width from CalendarRightSide
-  const canvasHeight = 750; // Original canvas height from CalendarRightSide
+  const canvasWidth = 350; // Original canvas width from CalendarRightSide
+  const canvasHeight = 720; // Original canvas height from CalendarRightSide
 
   const scaleX = thumbWidth / canvasWidth;
   const scaleY = thumbHeight / canvasHeight;
@@ -59,6 +59,7 @@ const CalendarPageThumbnail = ({ monthName, isSelected, monthData, monthIndex, t
             transformOrigin: 'top left',
             whiteSpace: 'nowrap',
           }}
+          className='mx-auto flex items-center justify-center'
         >
           {sticker.text}
         </div>
@@ -108,6 +109,7 @@ const CalendarPageThumbnail = ({ monthName, isSelected, monthData, monthIndex, t
           backgroundColor: 'rgba(255, 255, 255, 0.5)',
           transformOrigin: 'top left',
         }}
+        className=''
       >
         <div
           style={{

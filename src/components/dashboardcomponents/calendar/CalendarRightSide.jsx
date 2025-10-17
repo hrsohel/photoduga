@@ -4,6 +4,11 @@ import useImage from 'use-image';
 import { nanoid } from 'nanoid';
 import TextEditingTools from './TextEditingTools';
 
+const FrameImage = ({ src, width, height }) => {
+    const [image] = useImage(src, 'anonymous');
+    return <Image image={image} width={width} height={height} />;
+};
+
 const DraggableText = ({ shapeProps, isSelected, onSelect, onChange, onDblClick }) => {
   const shapeRef = useRef();
   const trRef = useRef();
@@ -76,53 +81,56 @@ const GridRect = ({ shapeProps, isSelected, onSelect, onChange }) => {
 
   return (
     <React.Fragment>
-    <Group
-      ref={groupRef}
-      onClick={onSelect}
-      onTap={onSelect}
-      onDragEnd={(e) => {
-        onChange({
-          ...shapeProps,
-          x: e.target.x(),
-          y: e.target.y(),
-        });
-      }}
-      x={shapeProps.x}
-      y={shapeProps.y}
-      draggable
-      onTransformEnd={(e) => {
-        const node = groupRef.current;
-        const scaleX = node.scaleX();
-        const scaleY = node.scaleY();
-        node.scaleX(1);
-        node.scaleY(1);
-        onChange({
-          ...shapeProps,
-          x: node.x(),
-          y: node.y(),
-          width: Math.max(5, shapeProps.width * scaleX),
-          height: Math.max(5, shapeProps.height * scaleY),
-        });
-      }}
-    >
-      <Rect
-        x={0}
-        y={0}
-        width={shapeProps.width}
-        height={shapeProps.height}
-        fill={shapeProps.image ? 'transparent' : 'rgba(240, 240, 240, 0.5)'}
-        stroke="black"
-        strokeWidth={2}
-      />
-      {img && (
-        <Image
+      <Group
+        ref={groupRef}
+        onClick={onSelect}
+        onTap={onSelect}
+        onDragEnd={(e) => {
+          onChange({
+            ...shapeProps,
+            x: e.target.x(),
+            y: e.target.y(),
+          });
+        }}
+        x={shapeProps.x}
+        y={shapeProps.y}
+        draggable
+        onTransformEnd={(e) => {
+          const node = groupRef.current;
+          const scaleX = node.scaleX();
+          const scaleY = node.scaleY();
+          node.scaleX(1);
+          node.scaleY(1);
+          onChange({
+            ...shapeProps,
+            x: node.x(),
+            y: node.y(),
+            width: Math.max(5, shapeProps.width * scaleX),
+            height: Math.max(5, shapeProps.height * scaleY),
+          });
+        }}
+      >
+        <Rect
+          x={0}
+          y={0}
+          width={shapeProps.width}
+          height={shapeProps.height}
+          fill={shapeProps.image ? 'transparent' : 'rgba(240, 240, 240, 0.5)'}
+          stroke="black"
+          strokeWidth={2}
+        />
+        {img && (
+          <Image
             image={img}
             x={0}
             y={0}
             width={shapeProps.width}
             height={shapeProps.height}
-            />
-      )}
+          />
+        )}
+        {shapeProps.frameUrl && (
+            <FrameImage src={shapeProps.frameUrl} width={shapeProps.width} height={shapeProps.height} />
+        )}
       </Group>
       {isSelected && (
         <Transformer
@@ -161,7 +169,7 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
     return dates;
   };
 
-  const currentYear = 2025; 
+  const currentYear = 2025;
   const monthDates = generateMonthDates(currentYear, currentMonthIndex);
   const monthName = new Date(currentYear, currentMonthIndex).toLocaleString('default', { month: 'long' });
 
@@ -178,7 +186,8 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
     setTexts(newTexts);
   };
 
-  const handleTextDblClick = (e, index, shapeProps) => {    const textNode = e.target;
+  const handleTextDblClick = (e, index, shapeProps) => {
+    const textNode = e.target;
     const currentSelectedId = selectedId;
     selectShape(null);
     textNode.hide();
@@ -256,14 +265,14 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
       if (e.keyCode === 13 && !e.shiftKey) {
         const newTexts = texts.slice();
         newTexts[index] = {
-            ...newTexts[index],
-            text: area.value,
+          ...newTexts[index],
+          text: area.value,
         };
         setTexts(newTexts);
         removeTextarea();
       }
       if (e.keyCode === 27) {
-        removeTextarea();
+        removeTextarea(); 
       }
     });
 
@@ -278,8 +287,8 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
       if (e.target !== area) {
         const newTexts = texts.slice();
         newTexts[index] = {
-            ...newTexts[index],
-            text: area.value,
+          ...newTexts[index],
+          text: area.value,
         };
         setTexts(newTexts);
         removeTextarea();
@@ -300,8 +309,9 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
   const handleDrop = (e) => {
     e.preventDefault();
     const imageUrl = e.dataTransfer.getData('imageUrl');
+    const frameUrl = e.dataTransfer.getData('frameUrl');
     const stage = calendarContainerRef.current;
-    
+
     const containerRect = e.currentTarget.getBoundingClientRect();
     const point = {
       x: e.clientX - containerRect.left,
@@ -309,7 +319,7 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
     };
 
     const targetGrid = layout.find(
-        (grid) => 
+      (grid) =>
         point.x > grid.x &&
         point.x < grid.x + grid.width &&
         point.y > grid.y &&
@@ -317,16 +327,29 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
     );
 
     if (targetGrid) {
+      if (imageUrl) {
         const newLayout = layout.map((grid) => {
-            if (grid.id === targetGrid.id) {
-                return {
-                    ...grid,
-                    image: imageUrl,
-                };
-            }
-            return grid;
+          if (grid.id === targetGrid.id) {
+            return {
+              ...grid,
+              image: imageUrl,
+            };
+          }
+          return grid;
         });
         onUpdateLayout(newLayout);
+      } else if (frameUrl) {
+        const newLayout = layout.map((grid) => {
+          if (grid.id === targetGrid.id) {
+            return {
+              ...grid,
+              frameUrl: frameUrl,
+            };
+          }
+          return grid;
+        });
+        onUpdateLayout(newLayout);
+      }
     }
   };
 
@@ -371,11 +394,11 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
 
   return (
     <div className={`w-[${CALENDAR_WIDTH}px] h-[${CALENDAR_HEIGHT}px] shadow-lg sticky top-0`} onDrop={handleDrop} onDragOver={handleDragOver}>
-      <Stage 
-        width={CALENDAR_WIDTH} 
-        height={CALENDAR_HEIGHT} 
-        ref={calendarContainerRef} 
-        onMouseDown={(e) => { 
+      <Stage
+        width={CALENDAR_WIDTH}
+        height={CALENDAR_HEIGHT}
+        ref={calendarContainerRef}
+        onMouseDown={(e) => {
           const clickedOnEmpty = e.target === e.target.getStage();
           if (clickedOnEmpty) {
             selectShape(null);
@@ -443,15 +466,15 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
             <Rect width={280} height={170} fill="rgba(255, 255, 255, 0.5)" />
             <Text text={`${monthName} ${currentYear}`} fontSize={14.4} fontStyle="bold" align="center" width={280} y={8} />
             {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-              <Text 
-                key={index} 
-                text={day} 
-                x={index * 38 + 7} 
-                y={34} 
-                width={38} 
-                align="center" 
-                fontStyle="bold" 
-                fill={index === 0 ? 'red' : index === 5 ? 'green' : 'black'} 
+              <Text
+                key={index}
+                text={day}
+                x={index * 38 + 7}
+                y={34}
+                width={38}
+                align="center"
+                fontStyle="bold"
+                fill={index === 0 ? 'red' : index === 5 ? 'green' : 'black'}
               />
             ))}
             {monthDates.map((date, index) => {
@@ -462,9 +485,9 @@ const CalendarRightSide = ({ selectedBg, bgType, selectedSticker, setSelectedSti
                 <Text
                   key={index}
                   text={date.getDate()}
-                  x={col * 38 + 7} 
-                  y={row * 17 + 64} 
-                  width={38} 
+                  x={col * 38 + 7}
+                  y={row * 17 + 64}
+                  width={38}
                   align="center"
                   fontStyle="bold"
                   fill={date.getDay() === 0 ? 'red' : date.getDay() === 5 ? 'green' : 'black'}

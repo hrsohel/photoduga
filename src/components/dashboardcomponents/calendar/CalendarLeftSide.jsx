@@ -8,7 +8,8 @@ const CalendarLeftSide = ({ onSelect, onLayoutSelect }) => {
     { id: 2, label: "Backgrounds" },
     { id: 3, label: "Frames" },
     { id: 4, label: "Stickers" },
-    { id: 5, label: "Page Layout" },
+    { id: 5, label: "Masks" },
+    { id: 6, label: "Page Layout" },
   ];
 
   const handleButtonClick = (label) => {

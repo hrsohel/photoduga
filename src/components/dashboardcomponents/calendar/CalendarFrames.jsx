@@ -1,38 +1,47 @@
-import React from 'react';
-
-const frames = [
-  '/path/to/frame1.png',
-  '/path/to/frame2.png',
-  '/path/to/frame3.png',
-  '/path/to/frame4.png',
-];
+import { frameCategories } from '@/data/imagesForPhotoAlbum';
+import React, { useState } from 'react'
 
 export default function CalendarFrames() {
-  const handleDragStart = (e, frameUrl) => {
-    e.dataTransfer.setData('frameUrl', frameUrl);
-  };
+    const [selectedCategory, setSelectedCategory] = useState('Simple');
 
-  return (
-    <div className='w-[300px] bg-white p-6 h-[91vh] sticky top-0 border-l-[1px] border-[#98989833]'>
-      <div>
-        <p className='font-bold text-[18px] text-[#A8C3A0] font-sans mt-[6px] text-center'>Frames</p>
-      </div>
-      <div className="mt-[40px] w-full space-y-2 h-96 overflow-y-auto flex items-stretch justify-center gap-2 flex-wrap border-b-[2px] border-[#777]">
-        {frames.map((src, index) => (
-          <div
-            key={index}
-            draggable
-            onDragStart={(e) => handleDragStart(e, src)}
-            className="cursor-move"
-          >
-            <img
-              src={src}
-              alt={`Frame ${index + 1}`}
-              className="w-16 h-16 object-cover border rounded"
-            />
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+    return (
+        <div className='w-[300px] bg-white p-6 h-[91vh] sticky top-0 border-l-[1px] border-[#98989833]'>
+            <p className='font-[600] text-center text-[22px] text-[#727273] font-sans'>Frames</p>
+            <div className='mt-[40px]'>
+                <div className="mt-2">
+                    {Object.keys(frameCategories).map(category => (
+                        <div key={category}>
+                            <button
+                                onClick={() => setSelectedCategory(category)}
+                                className={`w-full text-left px-6 py-3 flex items-center justify-between rounded-[8px] text-[16px] font-[600] font-sans ${selectedCategory === category ? 'bg-[#A8C3A0]' : 'text-[#727273CC]'}`}
+                            >
+                                <span>{category}</span>
+                                {selectedCategory === category && <span className="float-right">▼</span>}
+                            </button>
+                            {selectedCategory === category && (
+                                <div className="mt-2 flex items-center justify-center flex-wrap gap-2 w-full">
+                                    {frameCategories[category].map((option, index) => (
+                                        <div
+                                            key={index}
+                                            draggable
+                                            onDragStart={(e) => {
+                                                e.dataTransfer.setData('frameUrl', option);
+                                            }}
+                                            style={{
+                                                backgroundImage: `url(${option})`,
+                                                backgroundSize: 'contain',
+                                                backgroundPosition: 'center',
+                                                backgroundRepeat: 'no-repeat',
+                                            }}
+                                            className="w-20 h-20 border border-gray-300 rounded cursor-pointer hover:border-[#A8C3A0] transition-all duration-200"
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    )
 }

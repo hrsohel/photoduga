@@ -460,32 +460,36 @@ const Calendar = () => {
         {/* <PhotoAlbumToolbar /> */}
         <AlbumMenuBar onUndo={handleUndo} onRedo={handleRedo} onDownload={handleDownloadImage} onSaveState={handleSaveStateToIndexedDB} />
         <div className="flex flex-1 overflow-hidden h-full">
-          <CalendarLeftSide 
-            onSelect={handleToolSelect} 
-            onLayoutSelect={handleLayoutSelect}
-          />
-          <div className={`bg-white p-4 h-screen -mt-8 ${activeLeftBar === 'Frames' ? 'w-[400px]' : 'w-[100px]'}`}>
-            <CalendarTools 
-              uploadedImages={uploadedImages}
-              handleImageUpload={handleImageUpload}
-              activeLeftBar={activeLeftBar}
-              bgType={bgType}
-              setBgType={(type) => updateCurrentMonthState({ bgType: type })}
-              selectedBg={selectedBg}
-              setSelectedBg={(color) => updateCurrentMonthState({ selectedBg: color })}
-              onSelectLayout={handleLayoutChange}
-              onSelectSticker={handleSelectSticker}
-              onAddCanvasText={handleAddText}
-              onAddGrid={handleAddGrid}
-              onRemoveGrid={handleRemoveGrid}
-              onShuffleGrids={handleShuffleGrids}
-              currentMonthIndex={currentMonthIndex}
-              onMonthChange={setCurrentMonthIndex}
-              calendarMonths={calendarMonths}
-              setViewMode={setViewMode}
-            />
-            {showLayoutSelector && <LayoutSelector onSelect={handleLayoutChange} />}
-          </div>
+          {viewMode === 'one-side' &&
+            <>
+              <CalendarLeftSide 
+                onSelect={handleToolSelect} 
+                onLayoutSelect={handleLayoutSelect}
+              />
+              <div className={`bg-white p-4 h-screen -mt-8 ${activeLeftBar === 'Frames' || activeLeftBar === 'Masks' ? 'w-[400px]' : 'w-[100px]'}`}>
+                <CalendarTools 
+                  uploadedImages={uploadedImages}
+                  handleImageUpload={handleImageUpload}
+                  activeLeftBar={activeLeftBar}
+                  bgType={bgType}
+                  setBgType={(type) => updateCurrentMonthState({ bgType: type })}
+                  selectedBg={selectedBg}
+                  setSelectedBg={(color) => updateCurrentMonthState({ selectedBg: color })}
+                  onSelectLayout={handleLayoutChange}
+                  onSelectSticker={handleSelectSticker}
+                  onAddCanvasText={handleAddText}
+                  onAddGrid={handleAddGrid}
+                  onRemoveGrid={handleRemoveGrid}
+                  onShuffleGrids={handleShuffleGrids}
+                  currentMonthIndex={currentMonthIndex}
+                  onMonthChange={setCurrentMonthIndex}
+                  calendarMonths={calendarMonths}
+                  setViewMode={setViewMode}
+                />
+                {showLayoutSelector && <LayoutSelector onSelect={handleLayoutChange} />}
+              </div>
+            </>
+          }
           {console.log('currentPage.layout:', currentPage.layout)}
           {viewMode === 'one-side' ? (
             <CalendarMiddleSide
@@ -519,6 +523,12 @@ const Calendar = () => {
             <AllPagesView calendarMonths={calendarMonths} />
           )}
         </div>
+        <CalendarPageNavigation
+          currentMonthIndex={currentMonthIndex}
+          onMonthChange={setCurrentMonthIndex}
+          calendarMonths={calendarMonths}
+          setViewMode={setViewMode}
+        />
       </div>
     </DndProvider>
   );
