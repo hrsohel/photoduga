@@ -3,6 +3,7 @@ import MouseGift from './MouseGift'
 import CardGift from './CardGift'
 import CupGift from './CupGift'
 import TshirtGift from './TshirtGift'
+import ShopGift from './ShopGift'
 
 export default function RightSide() {
   return (
@@ -10,7 +11,8 @@ export default function RightSide() {
       {/* <MouseGift /> */}
       {/* <CardGift /> */}
       {/* <CupGift /> */}
-      <TshirtGift />
+      {/* <TshirtGift /> */}
+      <ShopGift />
     </div>
   )
 }

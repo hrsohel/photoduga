@@ -28,6 +28,7 @@ import { ChangePassword } from "@/pages/auth/ChangePassword";
 import PhotoAlbum from "@/pages/dashboardpages/photoAlbum/PhotoAlbum";
 import Calendar from "@/pages/dashboardpages/calendar/Calendar";
 import Gift from "@/pages/dashboardpages/gift/Gift";
+import DemoPhotoAlbum from "@/pages/DemoPhotoAlbum"
 
 // Admin Account
 // import AdminAccount from "../pages/dashboardpages/admin/AdminAccount";
@@ -57,6 +58,7 @@ const routes = createBrowserRouter([
   { path: "/forgotpass", element: <ForgotPassword /> },
   { path: "/otpverification", element: <OTPVerification /> },
   { path: "/resetPassword", element: <ResetPassword /> },
+  {path: "/demo-photo-album", element: <DemoPhotoAlbum />},
 
   // Protected Dashboard Routes
   {
