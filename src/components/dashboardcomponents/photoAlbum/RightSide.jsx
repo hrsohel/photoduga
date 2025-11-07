@@ -68,81 +68,151 @@ const MaskedImage = ({ loadedImage, maskSrc, width, height }) => {
     }
 
     return (
-        <Group>
-            {/* This group will clip the image */}
-            <Group
-                clipFunc={ctx => {
-                    if (maskStatus === 'loaded' && mask) {
-                        // Calculate mask dimensions and position based on mask-size and mask-position
-                        const maskScale = 0.8; // Let's try 80% for now, can be adjusted
-                        const maskDrawWidth = width * maskScale;
-                        const maskDrawHeight = height * maskScale;
-                        const maskDrawX = (width - maskDrawWidth) / 2; // Center horizontally
-                        const maskDrawY = (height - maskDrawHeight) / 2; // Center vertically
-
-                        ctx.drawImage(mask, maskDrawX, maskDrawY, maskDrawWidth, maskDrawHeight);
-                    }
-                }}
-            >
-                <KonvaImage
-                    image={loadedImage}
-                    x={imageX}
-                    y={imageY}
-                    width={imageWidth}
-                    height={imageHeight}
-                />
-            </Group>
-            {/* This KonvaImage will draw the mask on top as an overlay */}
-            {maskStatus === 'loaded' && mask && (
-                <KonvaImage
-                    image={mask}
-                    x={0}
-                    y={0}
-                    width={width}
-                    height={height}
-                />
-            )}
+        <Group
+            clipFunc={ctx => {
+                if (maskStatus === 'loaded' && mask) {
+                    ctx.drawImage(mask, 0, 0, width, height);
+                }
+            }}
+        >
+            <KonvaImage
+                image={loadedImage}
+                x={imageX}
+                y={imageY}
+                width={imageWidth}
+                height={imageHeight}
+            />
         </Group>
     );
 };
 
+const EditableImage = ({ imageConfig, konvaImage, gridCell }) => {
+    const imageRef = useRef();
+
+    useEffect(() => {
+        const node = imageRef.current;
+        if (node) {
+            const filter = imageConfig.filter || 'none';
+            if (filter !== 'none') {
+                node.cache();
+                const filterMap = {
+                    grayscale: Konva.Filters.Grayscale,
+                    sepia: Konva.Filters.Sepia,
+                    blur: Konva.Filters.Blur,
+                    brightness: Konva.Filters.Brighten,
+                    contrast: Konva.Filters.Contrast,
+                    invert: Konva.Filters.Invert,
+                };
+                node.filters([filterMap[filter]]);
+                if (filter === 'blur') node.blurRadius(10);
+                else node.blurRadius(0);
+
+                if (filter === 'brightness') node.brightness(0.2);
+                else node.brightness(0);
+
+                if (filter === 'contrast') node.contrast(20);
+                else node.contrast(0);
+
+            } else {
+                node.filters([]);
+            }
+        }
+    }, [imageConfig.filter]);
+
+    let imageProps = { x: 0, y: 0, width: gridCell.width, height: gridCell.height };
+    if (konvaImage && konvaImage.width > 0) {
+        const imgRatio = konvaImage.width / konvaImage.height;
+        const cellRatio = gridCell.width / gridCell.height;
+        const objectFit = imageConfig.objectFit || 'cover';
+
+        if ((objectFit === 'contain' && imgRatio > cellRatio) || (objectFit === 'cover' && imgRatio < cellRatio)) {
+            imageProps.width = gridCell.width;
+            imageProps.height = gridCell.width / imgRatio;
+            imageProps.x = 0;
+            imageProps.y = (gridCell.height - imageProps.height) / 2;
+        } else {
+            imageProps.height = gridCell.height;
+            imageProps.width = gridCell.height * imgRatio;
+            imageProps.y = 0;
+            imageProps.x = (gridCell.width - imageProps.width) / 2;
+        }
+    }
+
+    return (
+        <KonvaImage
+            ref={imageRef}
+            image={konvaImage}
+            {...imageProps}
+        />
+    );
+};
+
 // Image Editor Component with Zoom only
-function ImageEditor({ onClose, onDelete, onZoom, selectedImage }) {
-  const handleZoom = (factor) => {
-    onZoom(factor);
-  };
+function ImageEditor({
+  onClose,
+  onDelete,
+  onZoom,
+  selectedImage,
+  onEdit // A new generic edit handler
+}) {
+  if (!selectedImage) return null;
+
+  const filters = ['none', 'grayscale', 'sepia', 'blur', 'brightness', 'contrast', 'invert'];
+
+  const buttonStyle = { padding: '4px 8px', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', backgroundColor: 'white', fontSize: '12px' };
+  const actionButtonStyle = { ...buttonStyle, background: '#ff4444', color: 'white' };
+  const closeButtonStyle = { ...buttonStyle };
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        top: "20px",
-        left: "20px",
-        zIndex: 10,
-        background: "white",
-        padding: "10px",
-        borderRadius: "8px",
-        boxShadow: "0 0 10px rgba(0,0,0,0.1)",
-      }}
-    >
-      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={() => handleZoom(1.1)} style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px' }}>
-            Zoom In
-          </button>
-          <button onClick={() => handleZoom(0.9)} style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px' }}>
-            Zoom Out
-          </button>
-        </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={onDelete} style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px', background: '#ff4444', color: 'white' }}>
-            Delete Image
-          </button>
-          <button onClick={onClose} style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px' }}>
-            Close
-          </button>
-        </div>
+    <div style={{ position: "absolute", top: "10px", left: "10px", zIndex: 100, background: "white", padding: "8px", borderRadius: "8px", boxShadow: "0 0 15px rgba(0,0,0,0.2)", display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '8px', maxWidth: 'fit-content' }}>
+      
+      {/* Zoom */}
+      <button style={buttonStyle} onClick={() => onZoom(1.1)}>Zoom In</button>
+      <button style={buttonStyle} onClick={() => onZoom(0.9)}>Zoom Out</button>
+
+      {/* Rotate */}
+      <button style={buttonStyle} onClick={() => onEdit('rotation', (selectedImage.rotation - 90 + 360) % 360)}>Rotate L</button>
+      <button style={buttonStyle} onClick={() => onEdit('rotation', (selectedImage.rotation + 90) % 360)}>Rotate R</button>
+
+      {/* Flip */}
+      <button style={buttonStyle} onClick={() => onEdit('flipH', !selectedImage.flipH)}>Flip H</button>
+      <button style={buttonStyle} onClick={() => onEdit('flipV', !selectedImage.flipV)}>Flip V</button>
+
+      {/* Object Fit */}
+      <button style={buttonStyle} onClick={() => onEdit('objectFit', selectedImage.objectFit === 'cover' ? 'contain' : 'cover')}>
+        Fit/Fill
+      </button>
+      <button style={buttonStyle} onClick={() => onEdit('maskSrc', null)}>Remove Mask</button>
+
+      {/* Opacity */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <label style={{fontSize: '12px'}}>Opacity:</label>
+        <input
+          type="range"
+          min="0" max="1" step="0.05"
+          value={selectedImage.opacity}
+          onChange={(e) => onEdit('opacity', parseFloat(e.target.value))}
+          style={{ width: '80px' }}
+        />
       </div>
+
+      {/* Filter */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <label style={{fontSize: '12px'}}>Filter:</label>
+        <select style={{...buttonStyle, width: 'auto'}} value={selectedImage.filter} onChange={(e) => onEdit('filter', e.target.value)}>
+          {filters.map(f => <option key={f} value={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</option>)}
+        </select>
+      </div>
+
+      {/* Layering */}
+      <button style={buttonStyle} onClick={() => onEdit('layer', 'front')}>Front</button>
+      <button style={buttonStyle} onClick={() => onEdit('layer', 'forward')}>Fwd</button>
+      <button style={buttonStyle} onClick={() => onEdit('layer', 'backward')}>Bwd</button>
+      <button style={buttonStyle} onClick={() => onEdit('layer', 'back')}>Back</button>
+
+      {/* Actions */}
+      <button style={actionButtonStyle} onClick={onDelete}>Delete</button>
+      <button style={closeButtonStyle} onClick={onClose}>Close</button>
     </div>
   );
 }
@@ -600,6 +670,14 @@ export default function RightSide({
           let newPlacedImages = placedImages.filter(img => img.gridId !== selectedElement.imageIndex);
           setPlacedImages(newPlacedImages);
           setSelectedImageIndex(null);
+        } else if (selectedElement.type === 'grid' && selectedElement.imageIndex !== null) {
+          const newGridPositions = gridPositions.map((pos, index) => {
+            if (index === selectedElement.imageIndex) {
+              return { ...pos, frameUrl: null };
+            }
+            return pos;
+          });
+          setGridPositions(newGridPositions);
         } else if ((selectedElement.type === 'text' || selectedElement.type === 'sticker') && selectedElement.imageIndex !== null) {
           let newPlacedImages = placedImages.map(img => {
             if (img.gridId === selectedElement.imageIndex) {
@@ -627,16 +705,9 @@ export default function RightSide({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedElement, placedImages, setPlacedImages, setSelectedElement, setSelectedImageIndex, canvasStickers, setCanvasStickers, canvasTexts, setCanvasTexts]);
+  }, [selectedElement, placedImages, setPlacedImages, setSelectedElement, setSelectedImageIndex, canvasStickers, setCanvasStickers, canvasTexts, setCanvasTexts, gridPositions, setGridPositions]);
 
   const handleImageClick = (index, e) => {
-    e.cancelBubble = true;
-    setSelectedElement({ type: 'image', imageIndex: index, elementIndex: null });
-    setSelectedImageIndex(index);
-    setContextMenu({ visible: false, x: 0, y: 0, type: null, imageIndex: null });
-  };
-
-  const handleImageDblClick = (index, e) => {
     e.cancelBubble = true;
     setSelectedElement({ type: 'image', imageIndex: index, elementIndex: null });
     setSelectedImageIndex(index);
@@ -774,13 +845,26 @@ export default function RightSide({
     }
 
     if (maskUrl && targetGridIndex !== -1) {
-      const newGridPositions = gridPositions.map(pos => {
-          if (pos.id === targetGridIndex) {
-              return { ...pos, mask: maskUrl };
+      const imageInCell = placedImages.find(img => img.gridId === targetGridIndex);
+      if (imageInCell) {
+        // If there's an image, update its mask
+        const newPlacedImages = placedImages.map(img => {
+          if (img.gridId === targetGridIndex) {
+            return { ...img, maskSrc: maskUrl };
           }
-          return pos;
-      });
-      setGridPositions(newGridPositions);
+          return img;
+        });
+        setPlacedImages(newPlacedImages);
+      } else {
+        // If there's no image, update the grid cell's mask
+        const newGridPositions = gridPositions.map(pos => {
+            if (pos.id === targetGridIndex) {
+                return { ...pos, mask: maskUrl };
+            }
+            return pos;
+        });
+        setGridPositions(newGridPositions);
+      }
       saveToHistory();
       return;
     }
@@ -809,7 +893,6 @@ export default function RightSide({
           scaleX: 1,
           scaleY: 1,
           rotation: 0,
-          isSelected: false,
           x: 0,
           y: 0,
           width: cell.width,
@@ -820,6 +903,11 @@ export default function RightSide({
           gridId: targetGridIndex,
           id: Date.now() + Math.random(),
           maskSrc: cell.mask || null,
+          flipH: false,
+          flipV: false,
+          opacity: 1,
+          filter: 'none',
+          objectFit: 'cover',
         };
 
         let newPlacedImages;
@@ -989,13 +1077,36 @@ export default function RightSide({
     if (selectedImageIndex === null) return;
     const newPlacedImages = placedImages.map(img => {
         if (img.gridId === selectedImageIndex) {
-            const newScaleX = Math.max(0.1, Math.min(5, img.scaleX * factor));
-            const newScaleY = Math.max(0.1, Math.min(5, img.scaleY * factor));
+            const newScaleX = Math.max(0.1, Math.min(5, (img.scaleX || 1) * factor));
+            const newScaleY = Math.max(0.1, Math.min(5, (img.scaleY || 1) * factor));
             return { ...img, scaleX: newScaleX, scaleY: newScaleY };
         }
         return img;
     });
     setPlacedImages(newPlacedImages);
+    saveToHistory();
+  };
+
+  const handleEditImage = (property, value) => {
+    if (selectedImageIndex === null) return;
+
+    const newPlacedImages = placedImages.map(img => {
+        if (img.gridId === selectedImageIndex) {
+            if (property === 'layer') {
+                const zIndexes = placedImages.map(i => i.zIndex || 0);
+                let newZIndex = img.zIndex || 0;
+                if (value === 'front') newZIndex = Math.max(...zIndexes) + 1;
+                else if (value === 'back') newZIndex = Math.min(...zIndexes) - 1;
+                else if (value === 'forward') newZIndex = newZIndex + 1;
+                else if (value === 'backward') newZIndex = newZIndex - 1;
+                return { ...img, zIndex: newZIndex };
+            }
+            return { ...img, [property]: value };
+        }
+        return img;
+    });
+
+    setPlacedImages(newPlacedImages.sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0)));
     saveToHistory();
   };
 
@@ -1094,7 +1205,7 @@ export default function RightSide({
     e.evt.preventDefault();
     setSelectedImageIndex(imageIndex);
     setContextMenu({
-      visible: type !== 'image',
+      visible: true,
       x: e.evt.clientX,
       y: e.evt.clientY,
       type,
@@ -1383,12 +1494,13 @@ export default function RightSide({
                     onDragEnd={(e) => frame.shape === "rect" && handleGridDragEnd(i, e)}
                     onClick={(e) => {
                       if (frame.shape === "rect") {
-                        setSelectedElement({ type: 'grid', imageIndex: i, elementIndex: null });
-                      } else if (imageInThisGrid) {
-                        handleImageClick(frame.id, e)
+                        if (imageInThisGrid) {
+                          handleImageClick(frame.id, e)
+                        } else {
+                          setSelectedElement({ type: 'grid', imageIndex: i, elementIndex: null });
+                        }
                       }
                     }}
-                    onDblClick={(e) => imageInThisGrid && handleImageDblClick(frame.id, e)}
                     onTransformEnd={(e) => {
                       if (selectedElement.type === 'grid') {
                         handleGridGroupTransformEnd(i, e);
@@ -1435,7 +1547,14 @@ export default function RightSide({
                       <Mask maskSrc={frame.mask} width={frame.width} height={frame.height} />
                     )}
                     {imageInThisGrid && (
-                      <Group name="image-content">
+                      <Group 
+                        name="image-content"
+                        opacity={imageInThisGrid.opacity ?? 1}
+                        scaleX={imageInThisGrid.flipH ? -1 : 1}
+                        scaleY={imageInThisGrid.flipV ? -1 : 1}
+                        x={imageInThisGrid.flipH ? frame.width : 0}
+                        y={imageInThisGrid.flipV ? frame.height : 0}
+                      >
                         <Rect
                           width={imageInThisGrid.width}
                           height={imageInThisGrid.height}
@@ -1452,37 +1571,11 @@ export default function RightSide({
                                 height={imageInThisGrid.height}
                             />
                         ) : (
-                            (() => {
-                                let imageX = 0;
-                                let imageY = 0;
-                                let imageWidth = imageInThisGrid.width;
-                                let imageHeight = imageInThisGrid.height;
-
-                                if (image) {
-                                    const imageAspectRatio = image.width / image.height;
-                                    const containerAspectRatio = imageInThisGrid.width / imageInThisGrid.height;
-
-                                    if (containerAspectRatio > imageAspectRatio) {
-                                        imageHeight = imageInThisGrid.height;
-                                        imageWidth = imageInThisGrid.height * imageAspectRatio;
-                                        imageX = (imageInThisGrid.width - imageWidth) / 2;
-                                    } else {
-                                        imageWidth = imageInThisGrid.width;
-                                        imageHeight = imageInThisGrid.width / imageAspectRatio;
-                                        imageY = (imageInThisGrid.height - imageHeight) / 2;
-                                    }
-                                }
-
-                                return (
-                                    <KonvaImage
-                                        image={image}
-                                        x={imageX}
-                                        y={imageY}
-                                        width={imageWidth}
-                                        height={imageHeight}
-                                    />
-                                );
-                            })()
+                            <EditableImage 
+                              imageConfig={imageInThisGrid}
+                              konvaImage={image}
+                              gridCell={frame}
+                            />
                         )}
                         {imageInThisGrid.texts.map((text, textIndex) => (
                           <Text
@@ -1706,6 +1799,7 @@ export default function RightSide({
                 setContextMenu({ visible: false, x: 0, y: 0, type: null, imageIndex: null });
               }}
               onZoom={handleZoom}
+              onEdit={handleEditImage}
               selectedImage={placedImages.find(img => img.gridId === contextMenu.imageIndex)}
             />
           )}
