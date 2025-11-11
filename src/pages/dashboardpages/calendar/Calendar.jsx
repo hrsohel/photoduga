@@ -13,7 +13,7 @@ import CalendarTools from '@/components/dashboardcomponents/calendar/CalendarToo
 import AlbumMenuBar from '@/components/dashboardcomponents/photoAlbum/AlbumMenuBar';
 import PhotoLayoutModal from '@/components/dashboardcomponents/calendar/PhotoLayoutModal';
 import CalendarPageNavigation from '@/components/dashboardcomponents/calendar/CalendarPageNavigation';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 import AllPagesView from '@/components/dashboardcomponents/calendar/AllPagesView';
 
 const dbPromise = openDB('calendar-db', 1, {
