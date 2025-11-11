@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useContext } from 'react';
+import HistoryContext from '../../../context/HistoryContext';
 
 const AlbumMenuBar = () => {
+    const { undo, redo, canUndo, canRedo, saveState } = useContext(HistoryContext);
 
     return (
         <div className='px-[60px] py-[8px] bg-white flex items-center justify-between shadow-[0_2px_6px_0_rgba(0,0,0,0.5)] mb-1'>
@@ -16,13 +18,13 @@ const AlbumMenuBar = () => {
                     </defs>
                 </svg>
                 <img src="/23d53f7d1d878b83fe1116679f981dc99c5ae301.png" alt="" width={`70px`} height={`70px`} className='object-cover' />
-                <div className='flex items-center justify-center flex-col cursor-pointer'>
+                <div onClick={undo} className={`flex items-center justify-center flex-col ${canUndo ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
                     <svg width="24" height="25" viewBox="0 0 24 25" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M11 18.5H14.75C16.1424 18.5 17.4777 17.9469 18.4623 16.9623C19.4469 15.9777 20 14.6424 20 13.25C20 11.8576 19.4469 10.5223 18.4623 9.53769C17.4777 8.55312 16.1424 8 14.75 8H5M7.5 4.5L4 8L7.5 11.5" stroke="#A8C3A0" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                     <p className='font-[600] font-sans text-[16px] text-center' style={{ color: "rgba(114, 114, 115, 1)" }}>Cancel</p>
                 </div>
-                <div className='flex items-center justify-center flex-col cursor-pointer'>
+                <div onClick={redo} className={`flex items-center justify-center flex-col ${canRedo ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
                     <svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M13.5 18.5H9.75C8.35761 18.5 7.02226 17.9469 6.03769 16.9623C5.05312 15.9777 4.5 14.6424 4.5 13.25C4.5 11.8576 5.05312 10.5223 6.03769 9.53769C7.02226 8.55312 8.35761 8 9.75 8L19.5 8M17 4.5L20.5 8L17 11.5" stroke="#A8C3A0" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
@@ -43,7 +45,7 @@ const AlbumMenuBar = () => {
                 </svg>
             </div>
             <div className='flex items-center justify-center gap-[20px]'>
-                <div className='flex items-center justify-center flex-col cursor-pointer'>
+                <div onClick={() => saveState && saveState()} className={`flex items-center justify-center flex-col ${saveState ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
                     <svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <g clip-path="url(#clip0_2754_2554)">
                             <path d="M19.5 13.5V18.5C19.5 19.05 19.05 19.5 18.5 19.5H6.5C5.95 19.5 5.5 19.05 5.5 18.5V13.5C5.5 12.95 5.05 12.5 4.5 12.5C3.95 12.5 3.5 12.95 3.5 13.5V19.5C3.5 20.6 4.4 21.5 5.5 21.5H19.5C20.6 21.5 21.5 20.6 21.5 19.5V13.5C21.5 12.95 21.05 12.5 20.5 12.5C19.95 12.5 19.5 12.95 19.5 13.5ZM13.5 13.17L15.38 11.29C15.77 10.9 16.4 10.9 16.79 11.29C17.18 11.68 17.18 12.31 16.79 12.7L13.2 16.29C12.81 16.68 12.18 16.68 11.79 16.29L8.2 12.7C7.81 12.31 7.81 11.68 8.2 11.29C8.59 10.9 9.22 10.9 9.61 11.29L11.5 13.17V4.5C11.5 3.95 11.95 3.5 12.5 3.5C13.05 3.5 13.5 3.95 13.5 4.5V13.17Z" fill="#A8C3A0" />

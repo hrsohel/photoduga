@@ -1,7 +1,23 @@
-import React, { useState } from 'react';
+import React, { useContext, useEffect, useRef } from 'react';
+import { useHistory } from '../../../hooks/useHistory';
+import HistoryContext from '../../../context/HistoryContext';
 
-const CardGift = () => {
-  const [image, setImage] = useState(null);
+const CardGift = ({ isActive }) => {
+  const [state, setState, undo, redo, canUndo, canRedo, saveState, isLoaded] = useHistory('CardGift', { image: null });
+  const { setHistoryFunctions, registerGiftRef } = useContext(HistoryContext);
+  const giftRef = useRef(null);
+
+  useEffect(() => {
+    if (isActive) {
+      setHistoryFunctions({ undo, redo, canUndo, canRedo, saveState });
+      registerGiftRef(giftRef);
+    }
+  }, [isActive, undo, redo, canUndo, canRedo, saveState, setHistoryFunctions, registerGiftRef]);
+
+  if (!isLoaded) {
+    return <div>Loading...</div>;
+  }
+
 
   const cards = [
     { resolution: '255.37 x 384.19' }, // BOTTOM card with grid
@@ -19,14 +35,34 @@ const CardGift = () => {
 
   const handleDrop = (e) => {
     e.preventDefault();
-    const imageUrl = e.dataTransfer.getData('imageUrl');
-    if (imageUrl) {
-      setImage(imageUrl);
+    const files = e.dataTransfer.files;
+    const imageUrl = e.dataTransfer.getData('text/uri-list');
+
+    if (files && files.length > 0) {
+      const file = files[0];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64Image = event.target.result;
+        setState({ ...state, image: base64Image });
+      };
+      reader.readAsDataURL(file);
+    } else if (imageUrl) {
+      fetch(imageUrl)
+        .then(response => response.blob())
+        .then(blob => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const base64Image = event.target.result;
+            setState({ ...state, image: base64Image });
+          };
+          reader.readAsDataURL(blob);
+        })
+        .catch(error => console.error("Error fetching image URL:", error));
     }
   };
 
   return (
-    <div className="flex items-center justify-center h-[90vh] bg-gray-100">
+    <div ref={giftRef} className="flex items-center justify-center h-[90vh] bg-gray-100">
       <div className="relative flex items-center">
         {cards.map((card, index) => (
           <div
@@ -49,15 +85,15 @@ const CardGift = () => {
                   style={{
                     border: '2px dashed #9CA3AF',
                     borderRadius: '8px',
-                    backgroundImage: image ? `url(${image})` : `
+                    backgroundImage: state.image ? `url(${state.image})` : `
                       linear-gradient(to right, rgba(156, 163, 175, 0.3) 1px, transparent 1px),
                       linear-gradient(to bottom, rgba(156, 163, 175, 0.3) 1px, transparent 1px)
                     `,
-                    backgroundSize: image ? 'cover' : '60px 90px',
+                    backgroundSize: state.image ? 'cover' : '60px 90px',
                     backgroundPosition: 'center',
                   }}
                 >
-                  {!image && (
+                  {!state.image && (
                     <div className="col-span-2 row-span-4 flex items-center justify-center p-4">
                       <p className="text-gray-600 text-center text-sm font-medium">
                         Drag and drop an image here

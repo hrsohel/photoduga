@@ -1,74 +1,39 @@
-const DB_NAME = 'FototukaDashboardDB';
-const STORE_NAME = 'photoAlbum';
+import { openDB } from 'idb';
 
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
+const DB_NAME = 'GiftMakerDB';
+const STORE_NAME = 'giftState';
 
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-      }
-    };
+let dbPromise;
 
-    request.onsuccess = (event) => {
-      resolve(event.target.result);
-    };
-
-    request.onerror = (event) => {
-      reject(event.target.error);
-    };
-  });
+function getDb() {
+  if (!dbPromise) {
+    dbPromise = openDB(DB_NAME, 2, {
+      upgrade(db) {
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME);
+        }
+      },
+    });
+  }
+  return dbPromise;
 }
 
-export async function set(id, value) {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.put({ id, value });
-
-    request.onsuccess = () => {
-      resolve();
-    };
-
-    request.onerror = (event) => {
-      reject(event.target.error);
-    };
-  });
+export async function get(key) {
+  const db = await getDb();
+  return await db.get(STORE_NAME, key);
 }
 
-export async function get(id) {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.get(id);
+export async function set(key, val) {
+  const db = await getDb();
+  return await db.put(STORE_NAME, val, key);
+}
 
-    request.onsuccess = (event) => {
-      resolve(event.target.result?.value);
-    };
-
-    request.onerror = (event) => {
-      reject(event.target.error);
-    };
-  });
+export async function del(key) {
+    const db = await getDb();
+    return await db.delete(STORE_NAME, key);
 }
 
 export async function clear() {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.clear();
-
-    request.onsuccess = () => {
-      resolve();
-    };
-
-    request.onerror = (event) => {
-      reject(event.target.error);
-    };
-  });
+    const db = await getDb();
+    return await db.clear(STORE_NAME);
 }
