@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import AlbumMenuBar from '@/components/dashboardcomponents/gift/AlbumMenuBar';
 import LeftSide from '@/components/dashboardcomponents/gift/LeftSide';
 import RightSide from '@/components/dashboardcomponents/gift/RightSide';
@@ -13,12 +13,7 @@ export default function Gift() {
     const [uploadedImages, setUploadedImages] = useState([]);
     const [selectedGift, setSelectedGift] = useState('Shop'); // Default component
     const [historyFunctions, setHistoryFunctions] = useState({ undo: null, redo: null, canUndo: false, canRedo: false, saveState: null });
-    const [activeGiftRef, setActiveGiftRef] = useState(null);
-
-    const registerGiftRef = useCallback((ref) => {
-        setActiveGiftRef(ref);
-    }, []);
-
+    const giftContainerRef = useRef(null); // Create a ref for the gift container
 
     const handleImageUpload = (e) => {
         const files = Array.from(e.target.files);
@@ -41,14 +36,14 @@ export default function Gift() {
     const tabs = ['Shop', 'T-Shirt', 'Cup', 'Card', 'Mouse'];
 
     return (
-        <HistoryContext.Provider value={{ ...historyFunctions, setHistoryFunctions, activeGiftRef, registerGiftRef }}>
+        <HistoryContext.Provider value={{ ...historyFunctions, setHistoryFunctions, activeGiftRef: giftContainerRef }}>
             <section>
                 <AlbumMenuBar />
                 <div className="flex">
                     <div className="w-[25%]">
                         <LeftSide uploadedImages={uploadedImages} handleImageUpload={handleImageUpload} />
                     </div>
-                    <div className="w-[75%]">
+                    <div className="w-[75%]" ref={giftContainerRef}> {/* Attach the ref here */}
                         {renderGiftComponent()}
                     </div>
                 </div>
