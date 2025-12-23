@@ -4,15 +4,14 @@ import HistoryContext from '../../../context/HistoryContext';
 
 export default function TshirtGift({ isActive }) {
   const [state, setState, undo, redo, canUndo, canRedo, saveState, isLoaded] = useHistory('TshirtGift', { image: null });
-  const { setHistoryFunctions, registerGiftRef } = useContext(HistoryContext);
+  const { setHistoryFunctions } = useContext(HistoryContext);
   const giftRef = useRef(null);
 
   useEffect(() => {
     if (isActive) {
       setHistoryFunctions({ undo, redo, canUndo, canRedo, saveState });
-      registerGiftRef(giftRef);
     }
-  }, [isActive, undo, redo, canUndo, canRedo, saveState, setHistoryFunctions, registerGiftRef]);
+  }, [isActive, undo, redo, canUndo, canRedo, saveState, setHistoryFunctions]);
 
   if (!isLoaded) {
     return <div>Loading...</div>;

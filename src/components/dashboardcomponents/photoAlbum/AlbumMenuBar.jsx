@@ -1,5 +1,5 @@
 import React from 'react';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 
 const AlbumMenuBar = ({ onUndo, onRedo, onDownload, onSaveState }) => {
     const handleSave = () => {
